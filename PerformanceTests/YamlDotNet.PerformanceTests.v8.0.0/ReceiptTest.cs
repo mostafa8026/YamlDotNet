@@ -34,7 +34,7 @@ namespace YamlDotNet.PerformanceTests.v8_0_0
         private readonly StringWriter _buffer = new StringWriter();
 
         private readonly ISerializer _serializer = new SerializerBuilder()
-            .WithNamingConvention(new CamelCaseNamingConvention())
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
             .Build();
 
         [Benchmark(Description = "Serialize v8.0.0")]
