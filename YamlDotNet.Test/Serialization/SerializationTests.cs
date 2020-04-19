@@ -199,7 +199,7 @@ namespace YamlDotNet.Test.Serialization
             var expectedResult = Yaml.StreamFrom("tags.yaml").ReadToEnd().NormalizeNewLines();
             SerializerBuilder
                 .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitDefaults)
-                .WithTagMapping("tag:yaml.org,2002:point", typeof(Point));
+                .WithTagMapping(new TagName("tag:yaml.org,2002:point"), typeof(Point));
 
             var point = new Point(10, 20);
             var result = Serializer.Serialize(point);
