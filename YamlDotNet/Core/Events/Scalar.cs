@@ -19,6 +19,7 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
+using System;
 using System.Globalization;
 
 namespace YamlDotNet.Core.Events
@@ -73,12 +74,24 @@ namespace YamlDotNet.Core.Events
         /// <param name="start">The start position of the event.</param>
         /// <param name="end">The end position of the event.</param>
         public Scalar(AnchorName anchor, TagName tag, string value, ScalarStyle style, bool isPlainImplicit, bool isQuotedImplicit, Mark start, Mark end)
-            : base(anchor, tag, start, end)
+            : base(anchor, CoalesceNonSpecificTagName(tag, style), start, end)
         {
+            if (Tag.IsImplicit && !(isPlainImplicit || isQuotedImplicit))
+            {
+                throw new ArgumentException("Scalars with an implicit tag must have either isPlainImplicit or isQuotedImplicit", nameof(tag));
+            }
+
             this.Value = value;
             this.Style = style;
             this.IsPlainImplicit = isPlainImplicit;
             this.IsQuotedImplicit = isQuotedImplicit;
+        }
+
+        private static TagName CoalesceNonSpecificTagName(TagName tag, ScalarStyle style)
+        {
+            return tag.IsEmpty && style != ScalarStyle.Plain
+                ? TagName.NonSpecific.Implicit()
+                : tag;
         }
 
         /// <summary>

@@ -328,7 +328,7 @@ namespace YamlDotNet.Test.Core
                 }
                 else
                 {
-                    value.Should().Be(expectedValue, "Compared property {0} in parse event {1}", property.Name, eventNumber);
+                    value.Should().Be(expectedValue, "Compared property {0}.{1} in parse event {2}", property.DeclaringType.Name, property.Name, eventNumber);
                 }
             }
         }

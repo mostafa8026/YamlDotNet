@@ -33,7 +33,7 @@ namespace YamlDotNet.Core
     /// <summary>
     /// Parses YAML streams.
     /// </summary>
-    public class Parser : IParser
+    public sealed class Parser : IParser
     {
         private readonly Stack<ParserState> states = new Stack<ParserState>();
         private readonly TagDirectiveCollection tagDirectives = new TagDirectiveCollection();
@@ -514,7 +514,7 @@ namespace YamlDotNet.Core
                 {
                     if (lastTag != null && lastAnchor != null && !anchorName.IsEmpty)
                     {
-                        return new Events.Scalar(anchorName, default, string.Empty, default, false, false, lastAnchor.Start, lastAnchor.End);
+                        return new Events.Scalar(anchorName, TagName.Empty, string.Empty, default, lastAnchor.Start, lastAnchor.End);
                     }
                     throw new SemanticErrorException(error.Start, error.End, error.Value);
                 }
@@ -525,8 +525,6 @@ namespace YamlDotNet.Core
 
                 current = GetCurrentToken() ?? throw new SemanticErrorException("Reached the end of the stream while parsing a node");
             }
-
-            var isImplicit = tagName.IsEmpty;
 
             if (isIndentlessSequence && GetCurrentToken() is BlockEntry)
             {
@@ -545,17 +543,6 @@ namespace YamlDotNet.Core
             {
                 if (current is Scalar scalar)
                 {
-                    var isPlainImplicit = false;
-                    var isQuotedImplicit = false;
-                    if ((scalar.Style == ScalarStyle.Plain && tagName.IsEmpty) || tagName.IsNonSpecific)
-                    {
-                        isPlainImplicit = true;
-                    }
-                    else if (tagName.IsEmpty)
-                    {
-                        isQuotedImplicit = true;
-                    }
-
                     state = states.Pop();
                     Skip();
 

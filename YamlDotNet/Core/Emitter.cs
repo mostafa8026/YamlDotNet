@@ -256,7 +256,7 @@ namespace YamlDotNet.Core
 
                 AnalyzeAnchor(nodeEvent.Anchor, false);
 
-                if (!nodeEvent.Tag.IsEmpty && (isCanonical || nodeEvent.IsCanonical))
+                if (!nodeEvent.Tag.IsImplicit && (isCanonical || nodeEvent.IsCanonical))
                 {
                     AnalyzeTag(nodeEvent.Tag);
                 }

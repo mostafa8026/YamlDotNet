@@ -29,7 +29,7 @@ using System.Text.RegularExpressions;
 
 namespace YamlDotNet
 {
-#if (NETSTANDARD1_3 || UNITY)
+#if (UNITY)
     internal static class StandardRegexOptions
     {
         public const RegexOptions Compiled = RegexOptions.None;
@@ -654,11 +654,8 @@ namespace System.Linq
 
         public static bool Any<T>(this IEnumerable<T> sequence)
         {
-            foreach (var item in sequence)
-            {
-                return true;
-            }
-            return false;
+            using var enumerator = sequence.GetEnumerator();
+            return enumerator.MoveNext();
         }
 
         public static bool Any<T>(this IEnumerable<T> sequence, Func<T, bool> predicate)

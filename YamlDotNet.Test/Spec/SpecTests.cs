@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using Xunit;
+using Xunit.Abstractions;
 using Xunit.Sdk;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
@@ -32,6 +33,13 @@ namespace YamlDotNet.Test.Spec
 {
     public sealed class SpecTests
     {
+        private readonly ITestOutputHelper testOutput;
+
+        public SpecTests(ITestOutputHelper testOutput)
+        {
+            this.testOutput = testOutput ?? throw new ArgumentNullException(nameof(testOutput));
+        }
+
         private const string DescriptionFilename = "===";
         private const string InputFilename = "in.yaml";
         private const string ExpectedEventFilename = "test.event";
@@ -69,6 +77,8 @@ namespace YamlDotNet.Test.Spec
                 }
                 catch (Exception ex)
                 {
+                    testOutput.WriteLine("Exception while parsing (this may be expected):\n" + ex.Message);
+
                     Assert.True(error, $"Unexpected spec failure ({name}).\n{description}\nExpected:\n{expectedResult}\nActual:\n[Writer Output]\n{writer}\n[Exception]\n{ex}");
 
                     if (error)
@@ -180,7 +190,7 @@ namespace YamlDotNet.Test.Spec
                         textWriter.Write("+STR");
                         break;
                 }
-                textWriter.WriteLine();
+                textWriter.Write('\n');
             }
 
             void WriteAnchorAndTag(NodeEvent nodeEvent)
@@ -190,7 +200,7 @@ namespace YamlDotNet.Test.Spec
                     textWriter.Write(" &");
                     textWriter.Write(nodeEvent.Anchor);
                 }
-                if (!nodeEvent.Tag.IsEmpty)
+                if (!nodeEvent.Tag.IsImplicit)
                 {
                     textWriter.Write(" <");
                     textWriter.Write(nodeEvent.Tag.Value);
