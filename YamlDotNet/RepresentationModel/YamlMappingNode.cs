@@ -236,7 +236,7 @@ namespace YamlDotNet.RepresentationModel
         /// <param name="state">The state.</param>
         internal override void Emit(IEmitter emitter, EmitterState state)
         {
-            emitter.Emit(new MappingStart(Anchor, Tag, true, Style));
+            emitter.Emit(new MappingStart(Anchor, Tag, Style));
             foreach (var entry in Children)
             {
                 entry.Key.Save(emitter, state);

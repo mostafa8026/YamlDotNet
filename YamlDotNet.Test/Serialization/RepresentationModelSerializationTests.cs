@@ -104,10 +104,7 @@ namespace YamlDotNet.Test.Serialization
                 AnchorName.Empty,
                 "tag:yaml.org,2002:binary",
                 Convert.ToBase64String(bytes),
-                ScalarStyle.Plain,
-                false,
-                false
-            ));
+                ScalarStyle.Plain));
         }
     }
 }

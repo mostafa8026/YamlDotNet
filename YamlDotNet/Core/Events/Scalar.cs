@@ -20,7 +20,6 @@
 //  SOFTWARE.
 
 using System;
-using System.Globalization;
 
 namespace YamlDotNet.Core.Events
 {
@@ -60,7 +59,7 @@ namespace YamlDotNet.Core.Events
         /// Gets a value indicating whether this instance is canonical.
         /// </summary>
         /// <value></value>
-        public override bool IsCanonical => !IsPlainImplicit && !IsQuotedImplicit;
+        public override bool IsCanonical => !Tag.IsImplicit;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Scalar"/> class.
@@ -69,22 +68,13 @@ namespace YamlDotNet.Core.Events
         /// <param name="tag">The tag.</param>
         /// <param name="value">The value.</param>
         /// <param name="style">The style.</param>
-        /// <param name="isPlainImplicit">.</param>
-        /// <param name="isQuotedImplicit">.</param>
         /// <param name="start">The start position of the event.</param>
         /// <param name="end">The end position of the event.</param>
-        public Scalar(AnchorName anchor, TagName tag, string value, ScalarStyle style, bool isPlainImplicit, bool isQuotedImplicit, Mark start, Mark end)
+        public Scalar(AnchorName anchor, TagName tag, string value, ScalarStyle style, Mark start, Mark end)
             : base(anchor, CoalesceNonSpecificTagName(tag, style), start, end)
         {
-            if (Tag.IsImplicit && !(isPlainImplicit || isQuotedImplicit))
-            {
-                throw new ArgumentException("Scalars with an implicit tag must have either isPlainImplicit or isQuotedImplicit", nameof(tag));
-            }
-
             this.Value = value;
             this.Style = style;
-            this.IsPlainImplicit = isPlainImplicit;
-            this.IsQuotedImplicit = isQuotedImplicit;
         }
 
         private static TagName CoalesceNonSpecificTagName(TagName tag, ScalarStyle style)
@@ -101,10 +91,8 @@ namespace YamlDotNet.Core.Events
         /// <param name="tag">The tag.</param>
         /// <param name="value">The value.</param>
         /// <param name="style">The style.</param>
-        /// <param name="isPlainImplicit">.</param>
-        /// <param name="isQuotedImplicit">.</param>
-        public Scalar(AnchorName anchor, TagName tag, string value, ScalarStyle style, bool isPlainImplicit, bool isQuotedImplicit)
-            : this(anchor, tag, value, style, isPlainImplicit, isQuotedImplicit, Mark.Empty, Mark.Empty)
+        public Scalar(AnchorName anchor, TagName tag, string value, ScalarStyle style)
+            : this(anchor, tag, value, style, Mark.Empty, Mark.Empty)
         {
         }
 
@@ -113,7 +101,7 @@ namespace YamlDotNet.Core.Events
         /// </summary>
         /// <param name="value">The value.</param>
         public Scalar(string value)
-            : this(AnchorName.Empty, TagName.Empty, value, ScalarStyle.Any, true, true, Mark.Empty, Mark.Empty)
+            : this(AnchorName.Empty, TagName.Empty, value, ScalarStyle.Any, Mark.Empty, Mark.Empty)
         {
         }
 
@@ -123,7 +111,7 @@ namespace YamlDotNet.Core.Events
         /// <param name="tag">The tag.</param>
         /// <param name="value">The value.</param>
         public Scalar(TagName tag, string value)
-            : this(AnchorName.Empty, tag, value, ScalarStyle.Any, true, true, Mark.Empty, Mark.Empty)
+            : this(AnchorName.Empty, tag, value, ScalarStyle.Any, Mark.Empty, Mark.Empty)
         {
         }
 
@@ -131,7 +119,7 @@ namespace YamlDotNet.Core.Events
         /// Initializes a new instance of the <see cref="Scalar"/> class.
         /// </summary>
         public Scalar(AnchorName anchor, TagName tag, string value)
-            : this(anchor, tag, value, ScalarStyle.Any, true, true, Mark.Empty, Mark.Empty)
+            : this(anchor, tag, value, ScalarStyle.Any, Mark.Empty, Mark.Empty)
         {
         }
 
@@ -143,7 +131,7 @@ namespace YamlDotNet.Core.Events
         /// </returns>
         public override string ToString()
         {
-            return $"Scalar [anchor = {Anchor}, tag = {Tag}, value = {Value}, style = {Style}, isPlainImplicit = {IsPlainImplicit}, isQuotedImplicit = {IsQuotedImplicit}]";
+            return $"Scalar [anchor = {Anchor}, tag = {Tag}, value = {Value}, style = {Style}]";
         }
 
         /// <summary>
