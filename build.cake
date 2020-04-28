@@ -338,7 +338,7 @@ Task("Document")
     .Does(() =>
     {
         var samplesBinDir = "YamlDotNet.Samples/bin/" + configuration;
-        var testAssemblyFileName = samplesBinDir + "/YamlDotNet.Samples.dll";
+        var testAssemblyFileName = samplesBinDir + "/netcoreapp3.0/YamlDotNet.Samples.dll";
 
         var samplesAssembly = Assembly.LoadFrom(testAssemblyFileName);
 
