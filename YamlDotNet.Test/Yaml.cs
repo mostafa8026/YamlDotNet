@@ -35,7 +35,7 @@ namespace YamlDotNet.Test
             var fromType = typeof(Yaml);
             var assembly = fromType.GetTypeInfo().Assembly;
             var stream = assembly.GetManifestResourceStream(name) ??
-                         assembly.GetManifestResourceStream(fromType.Namespace + ".files." + name);
+                         assembly.GetManifestResourceStream(fromType.Namespace + ".files." + name)!;
             return new StreamReader(stream);
         }
 

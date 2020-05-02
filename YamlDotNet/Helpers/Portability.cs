@@ -663,6 +663,16 @@ namespace System.Linq
             return sequence.Where(predicate).Any();
         }
 
+        public static int Count<T>(this IEnumerable<T> sequence)
+        {
+            var count = 0;
+            foreach (var item in sequence)
+            {
+                ++count;
+            }
+            return count;
+        }
+
         public static bool Contains<T>(this IEnumerable<T> sequence, T value)
         {
             foreach (var item in sequence)
@@ -701,6 +711,102 @@ namespace System.Linq
             }
             return accumulator;
         }
+
+        public static ILookup<TKey, TSource> ToLookup<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector)
+        {
+            return source.ToLookup(keySelector, e => e);
+        }
+
+        public static ILookup<TKey, TElement> ToLookup<TSource, TKey, TElement>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector)
+        {
+            var lookup = new Lookup<TKey, TElement>();
+            foreach (var item in source)
+            {
+                lookup.Add(keySelector(item), elementSelector(item));
+            }
+            return lookup;
+        }
+
+        public static IEnumerable<IGrouping<TKey, TSource>> GroupBy<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector)
+        {
+            return source.ToLookup(keySelector);
+        }
+
+        public static IEnumerable<TResult> GroupBy<TSource, TKey, TResult>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, Func<TKey, IEnumerable<TSource>, TResult> resultSelector)
+        {
+            foreach (var group in source.ToLookup(keySelector))
+            {
+                yield return resultSelector(group.Key, group);
+            }
+        }
+
+        public static Dictionary<TKey, TSource> ToDictionary<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector)
+        {
+            return source.ToDictionary(keySelector, e => e);
+        }
+
+        public static Dictionary<TKey, TElement> ToDictionary<TSource, TKey, TElement>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector)
+        {
+            var result = new Dictionary<TKey, TElement>();
+            foreach (var item in source)
+            {
+                result.Add(keySelector(item), elementSelector(item));
+            }
+            return result;
+        }
+    }
+
+    internal interface ILookup<TKey, TElement> : IEnumerable<IGrouping<TKey, TElement>>, IEnumerable
+    {
+        IEnumerable<TElement> this[TKey key] { get; }
+        int Count { get; }
+        bool Contains(TKey key);
+    }
+
+    internal interface IGrouping<out TKey, TElement> : IEnumerable<TElement>, IEnumerable
+    {
+        TKey Key { get; }
+    }
+
+    internal sealed class Lookup<TKey, TElement> : ILookup<TKey, TElement>
+    {
+        private readonly Dictionary<TKey, Grouping> entries = new Dictionary<TKey, Grouping>();
+
+        public int Count => entries.Count;
+
+        private sealed class Grouping : List<TElement>, IGrouping<TKey, TElement>
+        {
+            public TKey Key { get; }
+
+            public Grouping(TKey key)
+            {
+                Key = key;
+            }
+        }
+
+        public void Add(TKey key, TElement element)
+        {
+            if (!entries.TryGetValue(key, out var group))
+            {
+                group = new Grouping(key);
+                entries.Add(key, group);
+            }
+            group.Add(element);
+        }
+
+        public IEnumerable<TElement> this[TKey key] => entries[key];
+
+        public bool Contains(TKey key) => entries.ContainsKey(key);
+
+        public IEnumerator<IGrouping<TKey, TElement>> GetEnumerator()
+        {
+            foreach (var entry in entries)
+            {
+                yield return entry.Value;
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }
 
@@ -768,7 +874,7 @@ namespace System.Runtime.Versioning
 
 namespace System.Collections.Concurrent
 {
-    #if NET20 || NET35 || UNITY
+#if NET20 || NET35 || UNITY
     internal sealed class ConcurrentDictionary<TKey, TValue>
     {
         private readonly Dictionary<TKey, TValue> entries = new Dictionary<TKey, TValue>();
@@ -788,5 +894,5 @@ namespace System.Collections.Concurrent
             }
         }
     }
-    #endif
+#endif
 }

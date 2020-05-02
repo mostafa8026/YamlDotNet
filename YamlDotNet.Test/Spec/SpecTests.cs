@@ -200,12 +200,13 @@ namespace YamlDotNet.Test.Spec
                     textWriter.Write(" &");
                     textWriter.Write(nodeEvent.Anchor);
                 }
-                if (!nodeEvent.Tag.IsImplicit)
-                {
-                    textWriter.Write(" <");
-                    textWriter.Write(nodeEvent.Tag.Value);
-                    textWriter.Write(">");
-                }
+                // TODO: 
+                //if (!nodeEvent.Tag.IsImplicit)
+                //{
+                //    textWriter.Write(" <");
+                //    textWriter.Write(nodeEvent.Tag.Name.Value);
+                //    textWriter.Write(">");
+                //}
             }
         }
 
