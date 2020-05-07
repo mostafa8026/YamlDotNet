@@ -770,39 +770,54 @@ namespace System.Linq
 
     internal sealed class Lookup<TKey, TElement> : ILookup<TKey, TElement>
     {
-        private readonly Dictionary<TKey, Grouping> entries = new Dictionary<TKey, Grouping>();
+        private readonly Dictionary<TKey, List<TElement>> entries = new Dictionary<TKey, List<TElement>>();
+        private readonly List<TKey> keys = new List<TKey>();
 
         public int Count => entries.Count;
 
-        private sealed class Grouping : List<TElement>, IGrouping<TKey, TElement>
+        private sealed class Grouping : IGrouping<TKey, TElement>
         {
+            private readonly IEnumerable<TElement> elements;
+
             public TKey Key { get; }
 
-            public Grouping(TKey key)
+            public Grouping(TKey key, IEnumerable<TElement> elements)
             {
                 Key = key;
+                this.elements = elements;
             }
+
+            public IEnumerator<TElement> GetEnumerator() => elements.GetEnumerator();
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         }
 
         public void Add(TKey key, TElement element)
         {
             if (!entries.TryGetValue(key, out var group))
             {
-                group = new Grouping(key);
+                keys.Add(key);
+                group = new List<TElement>();
                 entries.Add(key, group);
             }
             group.Add(element);
         }
 
-        public IEnumerable<TElement> this[TKey key] => entries[key];
+        public IEnumerable<TElement> this[TKey key]
+        {
+            get
+            {
+                return entries.TryGetValue(key, out var elements) ? elements : Enumerable.Empty<TElement>();
+            }
+        }
 
         public bool Contains(TKey key) => entries.ContainsKey(key);
 
         public IEnumerator<IGrouping<TKey, TElement>> GetEnumerator()
         {
-            foreach (var entry in entries)
+            foreach (var key in keys)
             {
-                yield return entry.Value;
+                yield return new Grouping(key, entries[key]);
             }
         }
 
