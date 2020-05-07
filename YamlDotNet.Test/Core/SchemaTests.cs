@@ -287,19 +287,19 @@ namespace YamlDotNet.Test.Core
 
         private sealed class NullSchema : ISchema
         {
-            public bool ResolveNonSpecificTag(Scalar node, IEnumerable<NodeEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+            public bool ResolveNonSpecificTag(Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
             {
                 resolvedTag = null;
                 return false;
             }
 
-            public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<NodeEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+            public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
             {
                 resolvedTag = null;
                 return false;
             }
 
-            public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<NodeEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+            public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
             {
                 resolvedTag = null;
                 return false;
@@ -308,6 +308,21 @@ namespace YamlDotNet.Test.Core
             public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag? resolvedTag)
             {
                 resolvedTag = null;
+                return false;
+            }
+
+            public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path)
+            {
+                return false;
+            }
+
+            public bool IsTagImplicit(MappingStart node, IEnumerable<CollectionEvent> path)
+            {
+                return false;
+            }
+
+            public bool IsTagImplicit(SequenceStart node, IEnumerable<CollectionEvent> path)
+            {
                 return false;
             }
         }

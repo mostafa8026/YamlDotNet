@@ -137,7 +137,6 @@ namespace YamlDotNet.Test.Spec
                 throw new KeyNotFoundException($"Schema '{schemaId}' not found");
             }
 
-
             using var reader = new StringReader("--- " + inputYaml);
             var parser = new SchemaAwareParser(new Parser(reader), schema);
 
@@ -187,6 +186,18 @@ namespace YamlDotNet.Test.Spec
             }
 
             Assert.Equal(expectedLoadedValue, actualLoadedValue);
+
+            var buffer = new StringWriter();
+            var emitter = new SchemaAwareEmitter(new Emitter(buffer), schema);
+            
+            emitter.Emit(new StreamStart());
+            emitter.Emit(new DocumentStart(null, null, isImplicit: false));
+            emitter.Emit(actual);
+            emitter.Emit(new DocumentEnd(true));
+            emitter.Emit(new StreamEnd());
+            var emittedYaml = buffer.ToString();
+
+            Assert.Equal("--- " + dumpedYaml + Environment.NewLine, emittedYaml);
         }
     }
 }

@@ -55,7 +55,7 @@ namespace YamlDotNet.Serialization
         protected ObjectEventInfo(IObjectDescriptor source)
             : base(source)
         {
-            Tag = new SimpleTag(TagName.Empty);
+            Tag = SimpleTag.NonSpecificOtherNodes;
         }
 
         public AnchorName Anchor { get; set; }

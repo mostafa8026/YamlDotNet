@@ -120,7 +120,7 @@ namespace YamlDotNet.Core.Schemas
             this.fallbackTag = fallbackTag;
         }
 
-        public bool ResolveNonSpecificTag(Scalar node, IEnumerable<NodeEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
         {
             if (!node.Tag.Name.IsEmpty)
             {
@@ -141,13 +141,13 @@ namespace YamlDotNet.Core.Schemas
             return !fallbackTag.Name.IsEmpty;
         }
 
-        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<NodeEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
         {
             resolvedTag = FailsafeSchema.Mapping;
             return true;
         }
 
-        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<NodeEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
         {
             resolvedTag = FailsafeSchema.Sequence;
             return true;
@@ -168,6 +168,26 @@ namespace YamlDotNet.Core.Schemas
 
             resolvedTag = null;
             return false;
+        }
+
+        public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path)
+        {
+            // TODO: Account for style
+            if (tags.TryGetValue(node.Tag.Name, out var tag) && tag.Matches(node.Value, out _))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public bool IsTagImplicit(MappingStart node, IEnumerable<CollectionEvent> path)
+        {
+            return false; // TODO
+        }
+
+        public bool IsTagImplicit(SequenceStart node, IEnumerable<CollectionEvent> path)
+        {
+            return false; // TODO
         }
     }
 }

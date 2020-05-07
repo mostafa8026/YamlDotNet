@@ -32,7 +32,7 @@ namespace YamlDotNet.Core.Schemas
         /// </summary>
         public static readonly FailsafeSchema Lenient = new FailsafeSchema(String);
 
-        public bool ResolveNonSpecificTag(Scalar node, IEnumerable<NodeEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
         {
             if (node.Tag.Name.IsEmpty)
             {
@@ -44,7 +44,7 @@ namespace YamlDotNet.Core.Schemas
             return true;
         }
 
-        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<NodeEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
         {
             if (node.Tag.Name.IsEmpty)
             {
@@ -56,7 +56,7 @@ namespace YamlDotNet.Core.Schemas
             return true;
         }
 
-        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<NodeEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
         {
             if (node.Tag.Name.IsEmpty)
             {
@@ -90,6 +90,21 @@ namespace YamlDotNet.Core.Schemas
                 resolvedTag = null;
                 return false;
             }
+        }
+
+        public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path)
+        {
+            return node.Tag.Name.Equals(YamlTagRepository.String);
+        }
+
+        public bool IsTagImplicit(MappingStart node, IEnumerable<CollectionEvent> path)
+        {
+            return node.Tag.Name.Equals(YamlTagRepository.Mapping);
+        }
+
+        public bool IsTagImplicit(SequenceStart node, IEnumerable<CollectionEvent> path)
+        {
+            return node.Tag.Name.Equals(YamlTagRepository.Sequence);
         }
     }
 }

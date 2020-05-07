@@ -36,7 +36,7 @@ namespace YamlDotNet.Core
     /// <summary>
     /// Emits YAML streams.
     /// </summary>
-    public class Emitter : IEmitter
+    public sealed class Emitter : IEmitter
     {
         private static readonly Regex uriReplacer = new Regex(@"[^0-9A-Za-z_\-;?@=$~\\\)\]/:&+,\.\*\(\[!]",
             StandardRegexOptions.Compiled | RegexOptions.Singleline);
@@ -258,6 +258,7 @@ namespace YamlDotNet.Core
                 AnalyzeAnchor(nodeEvent.Anchor, false);
 
                 // TODO: if (!nodeEvent.Tag.IsImplicit)
+                if (!nodeEvent.Tag.Name.IsEmpty) // TODO: Confirm this line
                 {
                     AnalyzeTag(nodeEvent.Tag.Name);
                 }

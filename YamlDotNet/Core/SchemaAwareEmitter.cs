@@ -20,34 +20,29 @@
 //  SOFTWARE.
 
 using System;
-using System.Collections.Generic;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Core.Schemas;
+using ParsingEvent = YamlDotNet.Core.Events.ParsingEvent;
 
 namespace YamlDotNet.Core
 {
-    /// <summary>
-    /// Decorates an <see cref="IParser" /> to apply a schema to it.
-    /// </summary>
-    public sealed class SchemaAwareParser : IParser
+    public sealed class SchemaAwareEmitter : IEmitter
     {
-        private readonly IParser parser;
-        private readonly NonSpecificTagResolver tagResolver;
+        private readonly IEmitter emitter;
+        private readonly ImplicitTagResolver implicitTagResolver;
 
-        public SchemaAwareParser(IParser parser, ISchema schema)
+        public SchemaAwareEmitter(IEmitter emitter, ISchema schema)
         {
-            this.parser = parser ?? throw new ArgumentNullException(nameof(parser));
-            this.tagResolver = new NonSpecificTagResolver(schema);
+            this.emitter = emitter ?? throw new ArgumentNullException(nameof(emitter));
+            this.implicitTagResolver = new ImplicitTagResolver(schema);
         }
 
-        public ParsingEvent? Current { get; private set; }
-
-        private sealed class NonSpecificTagResolver : IParsingEventVisitor<ParsingEvent>
+        private sealed class ImplicitTagResolver : IParsingEventVisitor<ParsingEvent>
         {
             private readonly ParsingEventPathBuilder currentPath = new ParsingEventPathBuilder();
             private readonly ISchema schema;
 
-            public NonSpecificTagResolver(ISchema schema)
+            public ImplicitTagResolver(ISchema schema)
             {
                 this.schema = schema ?? throw new ArgumentNullException(nameof(schema));
             }
@@ -55,13 +50,9 @@ namespace YamlDotNet.Core
             ParsingEvent IParsingEventVisitor<ParsingEvent>.Visit(Scalar scalar)
             {
                 var path = scalar.Accept(currentPath);
-                var wasResolved = scalar.Tag.Name.IsNonSpecific
-                    ? schema.ResolveNonSpecificTag(scalar, path, out var resolvedTag)
-                    : schema.ResolveSpecificTag(scalar.Tag.Name, out resolvedTag);
-
-                if (wasResolved)
+                if (schema.IsTagImplicit(scalar, path))
                 {
-                    scalar = new Scalar(scalar.Anchor, resolvedTag!, scalar.Value, scalar.Style, scalar.Start, scalar.End);
+                    scalar = new Scalar(scalar.Anchor, SimpleTag.NonSpecificOtherNodes, scalar.Value, scalar.Style, scalar.Start, scalar.End);
                 }
                 return scalar;
             }
@@ -69,13 +60,9 @@ namespace YamlDotNet.Core
             ParsingEvent IParsingEventVisitor<ParsingEvent>.Visit(SequenceStart sequenceStart)
             {
                 var path = sequenceStart.Accept(currentPath);
-                var wasResolved = sequenceStart.Tag.Name.IsNonSpecific
-                    ? schema.ResolveNonSpecificTag(sequenceStart, path, out var resolvedTag)
-                    : schema.ResolveSpecificTag(sequenceStart.Tag.Name, out resolvedTag);
-
-                if (wasResolved)
+                if (schema.IsTagImplicit(sequenceStart, path))
                 {
-                    sequenceStart = new SequenceStart(sequenceStart.Anchor, resolvedTag!, sequenceStart.Style, sequenceStart.Start, sequenceStart.End);
+                    sequenceStart = new SequenceStart(sequenceStart.Anchor, SimpleTag.NonSpecificOtherNodes, sequenceStart.Style, sequenceStart.Start, sequenceStart.End);
                 }
                 return sequenceStart;
             }
@@ -83,13 +70,9 @@ namespace YamlDotNet.Core
             ParsingEvent IParsingEventVisitor<ParsingEvent>.Visit(MappingStart mappingStart)
             {
                 var path = mappingStart.Accept(currentPath);
-                var wasResolved = mappingStart.Tag.Name.IsNonSpecific
-                    ? schema.ResolveNonSpecificTag(mappingStart, path, out var resolvedTag)
-                    : schema.ResolveSpecificTag(mappingStart.Tag.Name, out resolvedTag);
-
-                if (wasResolved)
+                if (schema.IsTagImplicit(mappingStart, path))
                 {
-                    mappingStart = new MappingStart(mappingStart.Anchor, resolvedTag!, mappingStart.Style, mappingStart.Start, mappingStart.End);
+                    mappingStart = new MappingStart(mappingStart.Anchor, SimpleTag.NonSpecificOtherNodes, mappingStart.Style, mappingStart.Start, mappingStart.End);
                 }
                 return mappingStart;
             }
@@ -106,6 +89,7 @@ namespace YamlDotNet.Core
                 return mappingEnd;
             }
 
+
             ParsingEvent IParsingEventVisitor<ParsingEvent>.Visit(AnchorAlias anchorAlias) => anchorAlias;
             ParsingEvent IParsingEventVisitor<ParsingEvent>.Visit(StreamStart streamStart) => streamStart;
             ParsingEvent IParsingEventVisitor<ParsingEvent>.Visit(StreamEnd streamEnd) => streamEnd;
@@ -114,17 +98,10 @@ namespace YamlDotNet.Core
             ParsingEvent IParsingEventVisitor<ParsingEvent>.Visit(Comment comment) => comment;
         }
 
-        public bool MoveNext()
+        public void Emit(ParsingEvent @event)
         {
-            if (this.parser.MoveNext())
-            {
-                this.Current = this.parser.Current!.Accept(this.tagResolver);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            var resolvedEvent = @event.Accept(implicitTagResolver);
+            this.emitter.Emit(resolvedEvent);
         }
     }
 }
