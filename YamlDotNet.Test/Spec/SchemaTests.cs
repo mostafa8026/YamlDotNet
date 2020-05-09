@@ -21,13 +21,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using Xunit;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
-using YamlDotNet.Core.Schemas;
+using YamlDotNet.Representation.Schemas;
 
 namespace YamlDotNet.Test.Spec
 {
@@ -139,9 +138,9 @@ namespace YamlDotNet.Test.Spec
 
             using var reader = new StringReader("--- " + inputYaml);
 
-            var document = Temp.Stream.Load(new Parser(reader), _ => schema).Single();
+            var document = Representation.Stream.Load(new Parser(reader), _ => schema).Single();
 
-            var actual = (Temp.Scalar)document.Content;
+            var actual = (Representation.Scalar)document.Content;
 
             var expectedTag = YamlTagRepository.Prefix + type switch
             {

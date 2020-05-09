@@ -38,7 +38,7 @@ namespace YamlDotNet.Serialization.NodeTypeResolvers
         bool INodeTypeResolver.Resolve(NodeEvent? nodeEvent, ref Type currentType)
         {
             // TODO: Get this information from the tag ?
-            if (nodeEvent != null && !nodeEvent.Tag.Name.IsEmpty && tagMappings.TryGetValue(nodeEvent.Tag.Name, out var predefinedType))
+            if (nodeEvent != null && !nodeEvent.Tag.IsEmpty && tagMappings.TryGetValue(nodeEvent.Tag, out var predefinedType))
             {
                 currentType = predefinedType;
                 return true;

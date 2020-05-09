@@ -26,11 +26,11 @@ namespace YamlDotNet.Core.Events
     /// </summary>
     public abstract class CollectionEvent : NodeEvent
     {
-        protected CollectionEvent(AnchorName anchor, ITag tag) : base(anchor, tag)
+        protected CollectionEvent(AnchorName anchor, TagName tag) : base(anchor, tag)
         {
         }
 
-        protected CollectionEvent(AnchorName anchor, ITag tag, Mark start, Mark end) : base(anchor, tag, start, end)
+        protected CollectionEvent(AnchorName anchor, TagName tag, Mark start, Mark end) : base(anchor, tag, start, end)
         {
         }
     }

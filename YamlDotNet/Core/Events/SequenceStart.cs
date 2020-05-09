@@ -53,7 +53,7 @@ namespace YamlDotNet.Core.Events
         /// <param name="start">The start position of the event.</param>
         /// <param name="end">The end position of the event.</param>
         /// 
-        public SequenceStart(AnchorName anchor, ITag tag, SequenceStyle style, Mark start, Mark end)
+        public SequenceStart(AnchorName anchor, TagName tag, SequenceStyle style, Mark start, Mark end)
             : base(anchor, tag, start, end)
         {
             this.Style = style;
@@ -62,7 +62,7 @@ namespace YamlDotNet.Core.Events
         /// <summary>
         /// Initializes a new instance of the <see cref="SequenceStart"/> class.
         /// </summary>
-        public SequenceStart(AnchorName anchor, ITag tag, SequenceStyle style)
+        public SequenceStart(AnchorName anchor, TagName tag, SequenceStyle style)
             : this(anchor, tag, style, Mark.Empty, Mark.Empty)
         {
         }
@@ -71,7 +71,7 @@ namespace YamlDotNet.Core.Events
         /// Initializes a new instance of the <see cref="SequenceStart"/> class.
         /// </summary>
         public SequenceStart()
-            : this(AnchorName.Empty, SimpleTag.NonSpecificOtherNodes, SequenceStyle.Any, Mark.Empty, Mark.Empty)
+            : this(AnchorName.Empty, TagName.Empty, SequenceStyle.Any, Mark.Empty, Mark.Empty)
         {
         }
 

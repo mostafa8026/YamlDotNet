@@ -4,9 +4,11 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text.RegularExpressions;
+using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
+using Events = YamlDotNet.Core.Events;
 
-namespace YamlDotNet.Core.Schemas
+namespace YamlDotNet.Representation.Schemas
 {
     public abstract class RegexBasedSchema : ISchema
     {
@@ -120,9 +122,9 @@ namespace YamlDotNet.Core.Schemas
             this.fallbackTag = fallbackTag;
         }
 
-        public bool ResolveNonSpecificTag(Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
         {
-            if (!node.Tag.Name.IsEmpty)
+            if (!node.Tag.IsEmpty)
             {
                 resolvedTag = FailsafeSchema.String;
                 return true;
@@ -170,10 +172,10 @@ namespace YamlDotNet.Core.Schemas
             return false;
         }
 
-        public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path)
+        public bool IsTagImplicit(Events.Scalar node, IEnumerable<CollectionEvent> path)
         {
             // TODO: Account for style
-            if (tags.TryGetValue(node.Tag.Name, out var tag) && tag.Matches(node.Value, out _))
+            if (tags.TryGetValue(node.Tag, out var tag) && tag.Matches(node.Value, out _))
             {
                 return true;
             }

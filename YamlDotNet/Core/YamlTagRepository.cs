@@ -1,4 +1,4 @@
-﻿namespace YamlDotNet.Core.Schemas
+﻿namespace YamlDotNet.Core
 {
     public static class YamlTagRepository
     {

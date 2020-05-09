@@ -1,15 +1,19 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
+using YamlDotNet.Core;
 
-namespace YamlDotNet.Core
+namespace YamlDotNet.Representation
 {
     public interface ITag
     {
         TagName Name { get; }
+
+        //object Construct()
+
         ScalarParser? ScalarParser { get; }
     }
 
-    public delegate object? ScalarParser(Events.Scalar scalar);
+    public delegate object? ScalarParser(Scalar scalar);
 
     public sealed class SimpleTag : ITag, IEquatable<SimpleTag>
     {

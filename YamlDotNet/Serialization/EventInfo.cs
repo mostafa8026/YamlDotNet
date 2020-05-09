@@ -55,11 +55,11 @@ namespace YamlDotNet.Serialization
         protected ObjectEventInfo(IObjectDescriptor source)
             : base(source)
         {
-            Tag = SimpleTag.NonSpecificOtherNodes;
+            Tag = TagName.Empty;
         }
 
         public AnchorName Anchor { get; set; }
-        public ITag Tag { get; set; }
+        public TagName Tag { get; set; }
     }
 
     public sealed class ScalarEventInfo : ObjectEventInfo

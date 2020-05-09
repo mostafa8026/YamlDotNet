@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
-using YamlDotNet.Core.Schemas;
 using YamlDotNet.Helpers;
+using YamlDotNet.Representation.Schemas;
 using Events = YamlDotNet.Core.Events;
 
-namespace YamlDotNet.Temp
+namespace YamlDotNet.Representation
 {
     public sealed class Stream
     {
@@ -84,7 +84,7 @@ namespace YamlDotNet.Temp
                 where TNode : NodeEvent
             {
                 var tag = node.Tag;
-                if (tag.Name.IsNonSpecific)
+                if (tag.IsNonSpecific)
                 {
                     if (resolveNonSpecificTag(node, path, out var resolvedTag))
                     {
@@ -93,12 +93,12 @@ namespace YamlDotNet.Temp
                 }
                 else
                 {
-                    if (schema.ResolveSpecificTag(tag.Name, out var resolvedTag))
+                    if (schema.ResolveSpecificTag(tag, out var resolvedTag))
                     {
                         return resolvedTag;
                     }
                 }
-                return tag;
+                return new SimpleTag(tag); // TODO: Maybe use a different type of tag
             }
 
             public Node Visit(Events.Scalar scalar)
@@ -209,7 +209,7 @@ namespace YamlDotNet.Temp
                 if (!TryEmitAlias(scalar, out var anchor))
                 {
                     // TODO: Style ?
-                    emitter.Emit(new Events.Scalar(anchor, scalar.Tag, scalar.Value));
+                    emitter.Emit(new Events.Scalar(anchor, scalar.Tag.Name, scalar.Value));
                 }
             }
 
@@ -218,7 +218,7 @@ namespace YamlDotNet.Temp
                 if (!TryEmitAlias(sequence, out var anchor))
                 {
                     // TODO: Style ?
-                    emitter.Emit(new SequenceStart(anchor, sequence.Tag, SequenceStyle.Any));
+                    emitter.Emit(new SequenceStart(anchor, sequence.Tag.Name, SequenceStyle.Any));
                     foreach (var item in sequence)
                     {
                         item.Accept(this);
@@ -232,7 +232,7 @@ namespace YamlDotNet.Temp
                 if (!TryEmitAlias(mapping, out var anchor))
                 {
                     // TODO: Style ?
-                    emitter.Emit(new MappingStart(anchor, mapping.Tag, MappingStyle.Any));
+                    emitter.Emit(new MappingStart(anchor, mapping.Tag.Name, MappingStyle.Any));
                     foreach (var pair in mapping)
                     {
                         pair.Key.Accept(this);

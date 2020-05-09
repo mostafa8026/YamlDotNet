@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
+using Events = YamlDotNet.Core.Events;
 
-namespace YamlDotNet.Core.Schemas
+namespace YamlDotNet.Representation.Schemas
 {
     /// <summary>
     /// Implements the Failsafe schema: <see href="https://yaml.org/spec/1.2/spec.html#id2802346"/>.
@@ -32,9 +34,9 @@ namespace YamlDotNet.Core.Schemas
         /// </summary>
         public static readonly FailsafeSchema Lenient = new FailsafeSchema(String);
 
-        public bool ResolveNonSpecificTag(Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
         {
-            if (node.Tag.Name.IsEmpty)
+            if (node.Tag.IsEmpty)
             {
                 resolvedTag = fallbackTag;
                 return !fallbackTag.Name.IsEmpty;
@@ -46,7 +48,7 @@ namespace YamlDotNet.Core.Schemas
 
         public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
         {
-            if (node.Tag.Name.IsEmpty)
+            if (node.Tag.IsEmpty)
             {
                 resolvedTag = fallbackTag;
                 return !fallbackTag.Name.IsEmpty;
@@ -58,7 +60,7 @@ namespace YamlDotNet.Core.Schemas
 
         public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
         {
-            if (node.Tag.Name.IsEmpty)
+            if (node.Tag.IsEmpty)
             {
                 resolvedTag = fallbackTag;
                 return !fallbackTag.Name.IsEmpty;
@@ -92,19 +94,19 @@ namespace YamlDotNet.Core.Schemas
             }
         }
 
-        public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path)
+        public bool IsTagImplicit(Events.Scalar node, IEnumerable<CollectionEvent> path)
         {
-            return node.Tag.Name.Equals(YamlTagRepository.String);
+            return node.Tag.Equals(YamlTagRepository.String);
         }
 
         public bool IsTagImplicit(MappingStart node, IEnumerable<CollectionEvent> path)
         {
-            return node.Tag.Name.Equals(YamlTagRepository.Mapping);
+            return node.Tag.Equals(YamlTagRepository.Mapping);
         }
 
         public bool IsTagImplicit(SequenceStart node, IEnumerable<CollectionEvent> path)
         {
-            return node.Tag.Name.Equals(YamlTagRepository.Sequence);
+            return node.Tag.Equals(YamlTagRepository.Sequence);
         }
     }
 }

@@ -22,7 +22,6 @@
 using System;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
-using YamlDotNet.Core.Schemas;
 
 namespace YamlDotNet.Serialization.NodeDeserializers
 {
@@ -47,7 +46,7 @@ namespace YamlDotNet.Serialization.NodeDeserializers
         {
             // http://yaml.org/type/null.html
 
-            if (nodeEvent.Tag.Name.Equals(YamlTagRepository.Null))
+            if (nodeEvent.Tag.Equals(YamlTagRepository.Null))
             {
                 return true;
             }

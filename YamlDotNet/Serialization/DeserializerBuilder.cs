@@ -22,7 +22,6 @@
 using System;
 using System.Collections.Generic;
 using YamlDotNet.Core;
-using YamlDotNet.Core.Schemas;
 using YamlDotNet.Serialization.NamingConventions;
 using YamlDotNet.Serialization.NodeDeserializers;
 using YamlDotNet.Serialization.NodeTypeResolvers;

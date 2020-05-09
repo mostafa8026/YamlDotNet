@@ -1,6 +1,7 @@
-﻿using YamlDotNet.Helpers;
+﻿using YamlDotNet.Core;
+using YamlDotNet.Helpers;
 
-namespace YamlDotNet.Core.Schemas
+namespace YamlDotNet.Representation.Schemas
 {
     /// <summary>
     /// Implements the Core schema: <see href="https://yaml.org/spec/1.2/spec.html#id2804923"/>.

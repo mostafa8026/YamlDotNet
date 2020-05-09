@@ -421,7 +421,7 @@ namespace YamlDotNet.Core
         /// </summary>
         private static ParsingEvent ProcessEmptyScalar(Mark position)
         {
-            return new Events.Scalar(AnchorName.Empty, SimpleTag.NonSpecificOtherNodes, string.Empty, ScalarStyle.Plain, position, position);
+            return new Events.Scalar(AnchorName.Empty, TagName.Empty, string.Empty, ScalarStyle.Plain, position, position);
         }
 
         /// <summary>
@@ -471,7 +471,7 @@ namespace YamlDotNet.Core
             var start = current.Start;
 
             var anchorName = AnchorName.Empty;
-            ITag tag = SimpleTag.NonSpecificOtherNodes;
+            TagName tag = TagName.Empty;
             Anchor? lastAnchor = null;
             Tag? lastTag = null;
 
@@ -484,16 +484,16 @@ namespace YamlDotNet.Core
                     anchorName = anchor.Value;
                     Skip();
                 }
-                else if (tag.Name.IsEmpty && current is Tag tagToken)
+                else if (tag.IsEmpty && current is Tag tagToken)
                 {
                     lastTag = tagToken;
                     if (string.IsNullOrEmpty(tagToken.Handle))
                     {
-                        tag = new SimpleTag(new TagName(tagToken.Suffix));
+                        tag = new TagName(tagToken.Suffix);
                     }
                     else if (tagDirectives.Contains(tagToken.Handle))
                     {
-                        tag = new SimpleTag(new TagName(string.Concat(tagDirectives[tagToken.Handle].Prefix, tagToken.Suffix)));
+                        tag = new TagName(string.Concat(tagDirectives[tagToken.Handle].Prefix, tagToken.Suffix));
                     }
                     else
                     {
@@ -514,7 +514,7 @@ namespace YamlDotNet.Core
                 {
                     if (lastTag != null && lastAnchor != null && !anchorName.IsEmpty)
                     {
-                        return new Events.Scalar(anchorName, SimpleTag.NonSpecificOtherNodes, string.Empty, ScalarStyle.Plain, lastAnchor.Start, lastAnchor.End);
+                        return new Events.Scalar(anchorName, TagName.Empty, string.Empty, ScalarStyle.Plain, lastAnchor.Start, lastAnchor.End);
                     }
                     throw new SemanticErrorException(error.Start, error.End, error.Value);
                 }
@@ -545,9 +545,9 @@ namespace YamlDotNet.Core
                     state = states.Pop();
                     Skip();
 
-                    if (tag.Name.IsEmpty && scalar.Style != ScalarStyle.Plain)
+                    if (tag.IsEmpty && scalar.Style != ScalarStyle.Plain)
                     {
-                        tag = SimpleTag.NonSpecificNonPlainScalar;
+                        tag = TagName.NonSpecific;
                     }
 
                     ParsingEvent evt = new Events.Scalar(anchorName, tag, scalar.Value, scalar.Style, start, scalar.End);
@@ -607,7 +607,7 @@ namespace YamlDotNet.Core
                     }
                 }
 
-                if (!anchorName.IsEmpty || !tag.Name.IsEmpty)
+                if (!anchorName.IsEmpty || !tag.IsEmpty)
                 {
                     state = states.Pop();
                     return new Events.Scalar(anchorName, tag, string.Empty, ScalarStyle.Plain, start, current.End);
@@ -883,7 +883,7 @@ namespace YamlDotNet.Core
                 if (current is Key)
                 {
                     state = ParserState.FlowSequenceEntryMappingKey;
-                    evt = new Events.MappingStart(AnchorName.Empty, SimpleTag.NonSpecificOtherNodes, MappingStyle.Flow);
+                    evt = new Events.MappingStart(AnchorName.Empty, TagName.Empty, MappingStyle.Flow);
                     Skip();
                     return evt;
                 }

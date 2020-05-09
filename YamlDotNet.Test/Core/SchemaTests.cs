@@ -29,7 +29,8 @@ using Xunit;
 using Xunit.Abstractions;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
-using YamlDotNet.Core.Schemas;
+using YamlDotNet.Representation;
+using YamlDotNet.Representation.Schemas;
 
 namespace YamlDotNet.Test.Core
 {
@@ -203,9 +204,9 @@ namespace YamlDotNet.Test.Core
 
         private void AssertParseWithSchemaProducesCorrectTags(ISchema schema, string yaml)
         {
-            var document = Temp.Stream.Load(ParserForText(yaml), _ => schema).Single();
+            var document = Representation.Stream.Load(ParserForText(yaml), _ => schema).Single();
 
-            foreach (Temp.Mapping testCase in (Temp.Sequence)document.Content)
+            foreach (Representation.Mapping testCase in (Representation.Sequence)document.Content)
             {
                 var expected = testCase["expected"];
                 var actual = testCase["actual"];
@@ -225,7 +226,7 @@ namespace YamlDotNet.Test.Core
 
         private sealed class NullSchema : ISchema
         {
-            public bool ResolveNonSpecificTag(Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+            public bool ResolveNonSpecificTag(YamlDotNet.Core.Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
             {
                 resolvedTag = null;
                 return false;
@@ -249,7 +250,7 @@ namespace YamlDotNet.Test.Core
                 return false;
             }
 
-            public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path)
+            public bool IsTagImplicit(YamlDotNet.Core.Events.Scalar node, IEnumerable<CollectionEvent> path)
             {
                 return false;
             }

@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit;
 using YamlDotNet.Core;
-using YamlDotNet.Core.Schemas;
 using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 
@@ -103,7 +98,7 @@ namespace YamlDotNet.Test.Serialization
             var bytes = (byte[])value!;
             emitter.Emit(new YamlDotNet.Core.Events.Scalar(
                 AnchorName.Empty,
-                new SimpleTag(YamlTagRepository.Binary),
+                YamlTagRepository.Binary,
                 Convert.ToBase64String(bytes),
                 ScalarStyle.Plain));
         }

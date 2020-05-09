@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
+using Events = YamlDotNet.Core.Events;
 
-namespace YamlDotNet.Core.Schemas
+namespace YamlDotNet.Representation.Schemas
 {
     public interface ISchema
     {
@@ -13,7 +15,7 @@ namespace YamlDotNet.Core.Schemas
         /// <param name="path">An ordered sequence of the nodes that lead to this scalar (not including this one).</param>
         /// <param name="resolvedTag">The resolved tag, if any.</param>
         /// <returns>Returns true if the tag could be resolved; otherwise returns false.</returns>
-        bool ResolveNonSpecificTag(Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag);
+        bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag);
 
         /// <summary>
         /// Attempts to resolve the non-specific tag of the specified mapping.
@@ -43,7 +45,7 @@ namespace YamlDotNet.Core.Schemas
         /// <param name="node">The scalar node for which the tag sould be resolved.</param>
         /// <param name="path">An ordered sequence of the nodes that lead to this scalar (not including this one).</param>
         /// <returns>Returns true if the tag can be omitted; otherwise returns false.</returns>
-        bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path);
+        bool IsTagImplicit(Events.Scalar node, IEnumerable<CollectionEvent> path);
 
         /// <summary>
         /// Determines whether the tag of the specified <paramref name="node"/> is implicit

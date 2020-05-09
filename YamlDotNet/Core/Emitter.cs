@@ -26,7 +26,6 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using YamlDotNet.Core.Events;
-using YamlDotNet.Core.Schemas;
 using ParsingEvent = YamlDotNet.Core.Events.ParsingEvent;
 using TagDirective = YamlDotNet.Core.Tokens.TagDirective;
 using VersionDirective = YamlDotNet.Core.Tokens.VersionDirective;
@@ -258,9 +257,9 @@ namespace YamlDotNet.Core
                 AnalyzeAnchor(nodeEvent.Anchor, false);
 
                 // TODO: if (!nodeEvent.Tag.IsImplicit)
-                if (!nodeEvent.Tag.Name.IsEmpty) // TODO: Confirm this line
+                if (!nodeEvent.Tag.IsEmpty) // TODO: Confirm this line
                 {
-                    AnalyzeTag(nodeEvent.Tag.Name);
+                    AnalyzeTag(nodeEvent.Tag);
                 }
             }
         }
@@ -278,7 +277,7 @@ namespace YamlDotNet.Core
 
             if (value.Length == 0)
             {
-                if (scalar.Tag.Name.Equals(YamlTagRepository.Null))
+                if (scalar.Tag.Equals(YamlTagRepository.Null))
                 {
                     scalarData.isMultiline = false;
                     scalarData.isFlowPlainAllowed = false;
