@@ -31,53 +31,6 @@ namespace YamlDotNet.Core
     /// </summary>
     public sealed class ParsingEventPathBuilder : IParsingEventVisitor<IEnumerable<CollectionEvent>>
     {
-        private sealed class NodePath
-        {
-            const int initialCapacity = 50;
-            private CollectionEvent[] currentPath = new CollectionEvent[initialCapacity];
-            private int count = 0;
-            private int version = 0;
-
-            public void Push(CollectionEvent @event)
-            {
-                if (count == currentPath.Length)
-                {
-                    Array.Resize(ref currentPath, currentPath.Length * 2);
-                }
-
-                currentPath[count] = @event;
-            }
-
-            public void Pop()
-            {
-                if (count == 0)
-                {
-                    throw new InvalidOperationException($"Cannot pop elements from an empty NodePath");
-                }
-
-                --count;
-                ++version; // Pop() invalidates previously returned enumerators
-            }
-
-            public IEnumerable<CollectionEvent> GetCurrentPath()
-            {
-                return Snapshot(count, version);
-            }
-
-            private IEnumerable<CollectionEvent> Snapshot(int length, int expectedVersion)
-            {
-                for (var i = 0; i < length; ++i)
-                {
-                    if (version != expectedVersion)
-                    {
-                        throw new InvalidOperationException("The NodePath from which this enumerator was build was modified.");
-                    }
-
-                    yield return currentPath[i];
-                }
-            }
-        }
-
         private readonly NodePath currentPath = new NodePath();
 
         IEnumerable<CollectionEvent> IParsingEventVisitor<IEnumerable<CollectionEvent>>.Visit(AnchorAlias anchorAlias) => null!;

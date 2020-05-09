@@ -20,7 +20,6 @@
 //  SOFTWARE.
 
 using System;
-using System.Collections.Generic;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Core.Schemas;
 

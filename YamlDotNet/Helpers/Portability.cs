@@ -22,6 +22,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -829,7 +830,17 @@ namespace System.Collections.Generic
 {
     internal class HashSet<T> : IEnumerable<T>
     {
-        private readonly Dictionary<T, object?> items = new Dictionary<T, object?>();
+        private readonly Dictionary<T, object?> items;
+
+        public HashSet()
+        {
+            items = new Dictionary<T, object?>();
+        }
+
+        public HashSet(IEqualityComparer<T> comparer)
+        {
+            items = new Dictionary<T, object?>(comparer);
+        }
 
         public bool Add(T value)
         {
@@ -887,9 +898,9 @@ namespace System.Runtime.Versioning
 }
 #endif
 
+#if NET20 || NET35 || UNITY
 namespace System.Collections.Concurrent
 {
-#if NET20 || NET35 || UNITY
     internal sealed class ConcurrentDictionary<TKey, TValue>
     {
         private readonly Dictionary<TKey, TValue> entries = new Dictionary<TKey, TValue>();
@@ -909,5 +920,102 @@ namespace System.Collections.Concurrent
             }
         }
     }
-#endif
 }
+
+namespace System.Collections.Generic
+{
+    public interface IReadOnlyCollection<T> : IEnumerable<T>, IEnumerable
+    {
+        int Count { get; }
+    }
+
+    public interface IReadOnlyDictionary<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>>, IEnumerable, IReadOnlyCollection<KeyValuePair<TKey, TValue>> where TKey : notnull
+    {
+        TValue this[TKey key] { get; }
+        IEnumerable<TKey> Keys { get; }
+        IEnumerable<TValue> Values { get; }
+        bool ContainsKey(TKey key);
+        bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value);
+
+    }
+
+    public interface IReadOnlyList<T> : IEnumerable<T>, IEnumerable, IReadOnlyCollection<T>
+    {
+        T this[int index] { get; }
+    }
+}
+
+namespace YamlDotNet.Helpers
+{
+    public static class ReadOnlyCollectionExtensions
+    {
+        private sealed class ReadOnlyListAdapter<T> : IReadOnlyList<T>
+        {
+            private readonly List<T> list;
+
+            public ReadOnlyListAdapter(List<T> list)
+            {
+                this.list = list ?? throw new ArgumentNullException(nameof(list));
+            }
+
+            public T this[int index] => list[index];
+            public int Count => list.Count;
+            public IEnumerator<T> GetEnumerator() => list.GetEnumerator();
+
+            IEnumerator IEnumerable.GetEnumerator() => list.GetEnumerator();
+        }
+
+        public static IReadOnlyList<T> AsReadonly<T>(this List<T> list)
+        {
+            return new ReadOnlyListAdapter<T>(list);
+        }
+
+        private sealed class ReadOnlyDictionaryAdapter<TKey, TValue> : IReadOnlyDictionary<TKey, TValue> where TKey : notnull
+        {
+            private readonly Dictionary<TKey, TValue> dictionary;
+
+            public ReadOnlyDictionaryAdapter(Dictionary<TKey, TValue> dictionary)
+            {
+                this.dictionary = dictionary ?? throw new ArgumentNullException(nameof(dictionary));
+            }
+
+            public TValue this[TKey key] => dictionary[key];
+
+            public IEnumerable<TKey> Keys => dictionary.Keys;
+
+            public IEnumerable<TValue> Values => dictionary.Values;
+
+            public int Count => dictionary.Count;
+
+            public bool ContainsKey(TKey key) => dictionary.ContainsKey(key);
+
+            public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => dictionary.GetEnumerator();
+
+            public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) => dictionary.TryGetValue(key, out value);
+
+            IEnumerator IEnumerable.GetEnumerator() => dictionary.GetEnumerator();
+        }
+
+        public static IReadOnlyDictionary<TKey, TValue> AsReadonly<TKey, TValue>(this Dictionary<TKey, TValue> dictionary) where TKey : notnull
+        {
+            return new ReadOnlyDictionaryAdapter<TKey, TValue>(dictionary);
+        }
+    }
+}
+#else
+namespace YamlDotNet.Helpers
+{
+    public static class ReadOnlyCollectionExtensions
+    {
+        public static IReadOnlyList<T> AsReadonly<T>(this List<T> list)
+        {
+            return list;
+        }
+
+        public static IReadOnlyDictionary<TKey, TValue> AsReadonly<TKey, TValue>(this Dictionary<TKey, TValue> dictionary) where TKey : notnull
+        {
+            return dictionary;
+        }
+    }
+}
+#endif

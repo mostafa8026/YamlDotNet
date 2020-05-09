@@ -203,43 +203,12 @@ namespace YamlDotNet.Test.Core
 
         private void AssertParseWithSchemaProducesCorrectTags(ISchema schema, string yaml)
         {
-            var parser = new SchemaAwareParser(
-                ParserForText(yaml),
-                schema
-            );
+            var document = Temp.Stream.Load(ParserForText(yaml), _ => schema).Single();
 
-            parser.TryConsume<StreamStart>(out _);
-            parser.TryConsume<DocumentStart>(out _);
-            parser.TryConsume<SequenceStart>(out _);
-
-            while (!parser.TryConsume<SequenceEnd>(out _))
+            foreach (Temp.Mapping testCase in (Temp.Sequence)document.Content)
             {
-                parser.Consume<MappingStart>();
-
-                NodeEvent? expected = null;
-                NodeEvent? actual = null;
-                for (int i = 0; i < 2; i++)
-                {
-                    var key = parser.Consume<Scalar>();
-                    switch (key.Value)
-                    {
-                        case nameof(expected):
-                            expected = ConsumeObject(parser);
-                            break;
-
-                        case nameof(actual):
-                            actual = ConsumeObject(parser);
-                            break;
-
-                        default:
-                            throw new ApplicationException($"Invalid test data key: '{key.Value}'");
-                    }
-                }
-
-                if (expected == null || actual == null)
-                {
-                    throw new ApplicationException("Invalid test data");
-                }
+                var expected = testCase["expected"];
+                var actual = testCase["actual"];
 
                 output.WriteLine("actual: {0}\nexpected: {1}\n\n", actual, expected);
 
@@ -251,38 +220,7 @@ namespace YamlDotNet.Test.Core
                 }
 
                 Assert.Equal(expectedTag, actual.Tag.Name);
-
-                parser.Consume<MappingEnd>();
             }
-        }
-
-        private NodeEvent ConsumeObject(IParser parser)
-        {
-            if (parser.TryConsume<Scalar>(out var scalar))
-            {
-                return scalar;
-            }
-
-            if (parser.Accept<MappingStart>(out var mapping))
-            {
-                parser.SkipThisAndNestedEvents();
-                return mapping;
-            }
-
-            if (parser.Accept<SequenceStart>(out var sequence))
-            {
-                parser.SkipThisAndNestedEvents();
-                return sequence;
-            }
-
-            parser.Accept<ParsingEvent>(out var parsingEvent);
-            throw new InvalidOperationException(
-                string.Format(
-                    "Invalid node type {0} at {1}",
-                    parsingEvent!.GetType().Name,
-                    parsingEvent!.Start
-                )
-            );
         }
 
         private sealed class NullSchema : ISchema
