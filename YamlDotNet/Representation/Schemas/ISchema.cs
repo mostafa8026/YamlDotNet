@@ -15,7 +15,7 @@ namespace YamlDotNet.Representation.Schemas
         /// <param name="path">An ordered sequence of the nodes that lead to this scalar (not including this one).</param>
         /// <param name="resolvedTag">The resolved tag, if any.</param>
         /// <returns>Returns true if the tag could be resolved; otherwise returns false.</returns>
-        bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag);
+        bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Scalar>? resolvedTag);
 
         /// <summary>
         /// Attempts to resolve the non-specific tag of the specified mapping.
@@ -24,7 +24,7 @@ namespace YamlDotNet.Representation.Schemas
         /// <param name="path">An ordered sequence of the nodes that lead to this mapping (not including this one).</param>
         /// <param name="resolvedTag">The resolved tag, if any.</param>
         /// <returns>Returns true if the tag could be resolved; otherwise returns false.</returns>
-        bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag);
+        bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Mapping>? resolvedTag);
 
         /// <summary>
         /// Attempts to resolve the non-specific tag of the specified sequence.
@@ -33,7 +33,7 @@ namespace YamlDotNet.Representation.Schemas
         /// <param name="path">An ordered sequence of the nodes that lead to this sequence (not including this one).</param>
         /// <param name="resolvedTag">The resolved tag, if any.</param>
         /// <returns>Returns true if the tag could be resolved; otherwise returns false.</returns>
-        bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag);
+        bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Sequence>? resolvedTag);
 
         /// <summary>
         /// Determines whether the tag of the specified <paramref name="node"/> is implicit
@@ -77,6 +77,22 @@ namespace YamlDotNet.Representation.Schemas
         /// <param name="tag">The tag as specified in the original YAMl document.</param>
         /// <param name="resolvedTag">The resolved tag, if any.</param>
         /// <returns>Returns true if the tag could be resolved; otherwise returns false.</returns>
-        bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag? resolvedTag);
+        bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Scalar>? resolvedTag);
+
+        /// <summary>
+        /// Attempts to resolve a specific tag to enrich it with schema information.
+        /// </summary>
+        /// <param name="tag">The tag as specified in the original YAMl document.</param>
+        /// <param name="resolvedTag">The resolved tag, if any.</param>
+        /// <returns>Returns true if the tag could be resolved; otherwise returns false.</returns>
+        bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Sequence>? resolvedTag);
+
+        /// <summary>
+        /// Attempts to resolve a specific tag to enrich it with schema information.
+        /// </summary>
+        /// <param name="tag">The tag as specified in the original YAMl document.</param>
+        /// <param name="resolvedTag">The resolved tag, if any.</param>
+        /// <returns>Returns true if the tag could be resolved; otherwise returns false.</returns>
+        bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Mapping>? resolvedTag);
     }
 }

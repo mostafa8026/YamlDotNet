@@ -7,39 +7,32 @@ namespace YamlDotNet.Representation
     public interface ITag
     {
         TagName Name { get; }
-
-        //object Construct()
-
-        ScalarParser? ScalarParser { get; }
     }
 
-    public delegate object? ScalarParser(Scalar scalar);
-
-    public sealed class SimpleTag : ITag, IEquatable<SimpleTag>
+    public interface ITag<TNode> : ITag where TNode : INode
     {
-        public TagName Name { get; }
-        public ScalarParser? ScalarParser { get; }
+        object? Construct(TNode node);
+        TNode Represent(object? native);
+    }
 
-        public SimpleTag(TagName name, ScalarParser? scalarParser = null)
+    // TODO: Create specific implementations and discontinue this class
+    public sealed class SimpleTag<TNode> : ITag<TNode> where TNode : INode
+    {
+        private readonly Func<TNode, object?> constructor;
+
+        public TagName Name { get; }
+
+        public SimpleTag(TagName name, Func<TNode, object?> constructor)
         {
             Name = name;
-            ScalarParser = scalarParser;
+            this.constructor = constructor ?? throw new ArgumentNullException(nameof(constructor));
         }
 
-        public static readonly SimpleTag NonSpecificNonPlainScalar = new SimpleTag(TagName.NonSpecific);
-        public static readonly SimpleTag NonSpecificOtherNodes = new SimpleTag(TagName.Empty);
+        public object? Construct(TNode node) => constructor(node);
 
-        public override bool Equals(object? obj) => Equals(obj as SimpleTag);
-
-        public bool Equals([AllowNull] SimpleTag other)
+        public TNode Represent(object? native)
         {
-            return other != null
-                && Name.Equals(other.Name);
-        }
-
-        public override int GetHashCode()
-        {
-            return Name.GetHashCode();
+            throw new NotImplementedException();
         }
 
         public override string ToString()

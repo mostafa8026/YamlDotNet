@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
@@ -51,9 +50,9 @@ namespace YamlDotNet.Representation
             emitter.Emit(new StreamEnd());
         }
 
-        private sealed class NodeLoader : IParsingEventVisitor<Node>
+        private sealed class NodeLoader : IParsingEventVisitor<INode>
         {
-            private readonly Dictionary<AnchorName, Node> anchoredNodes = new Dictionary<AnchorName, Node>();
+            private readonly Dictionary<AnchorName, INode> anchoredNodes = new Dictionary<AnchorName, INode>();
             private readonly NodePath currentPath = new NodePath();
             private readonly IParser parser;
             private readonly ISchema schema;
@@ -64,7 +63,7 @@ namespace YamlDotNet.Representation
                 this.schema = schema ?? throw new ArgumentNullException(nameof(schema));
             }
 
-            public Node Visit(AnchorAlias anchorAlias)
+            public INode Visit(AnchorAlias anchorAlias)
             {
                 if (anchoredNodes.TryGetValue(anchorAlias.Value, out var node))
                 {
@@ -78,10 +77,16 @@ namespace YamlDotNet.Representation
                 return new SemanticErrorException(parsingEvent.Start, parsingEvent.End, $"Found an unexpected event '{parsingEvent.Type}'.");
             }
 
-            private delegate bool ResolveNonSpecificTagDelegate<TNode>(TNode node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag);
+            private delegate bool ResolveNonSpecificTagDelegate<TEvent, TNode>(TEvent @event, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<TNode>? resolvedTag)
+                where TEvent : NodeEvent
+                where TNode : INode;
 
-            private ITag ResolveTag<TNode>(TNode node, IEnumerable<CollectionEvent> path, ResolveNonSpecificTagDelegate<TNode> resolveNonSpecificTag)
-                where TNode : NodeEvent
+            private delegate bool ResolveSpecificTagDelegate<TNode>(TagName tag, [NotNullWhen(true)] out ITag<TNode>? resolvedTag)
+                where TNode : INode;
+
+            private ITag<TNode> ResolveTag<TEvent, TNode>(TEvent node, IEnumerable<CollectionEvent> path, ResolveNonSpecificTagDelegate<TEvent, TNode> resolveNonSpecificTag, ResolveSpecificTagDelegate<TNode> resolveSpecificTag)
+                where TEvent : NodeEvent
+                where TNode : INode
             {
                 var tag = node.Tag;
                 if (tag.IsNonSpecific)
@@ -93,29 +98,29 @@ namespace YamlDotNet.Representation
                 }
                 else
                 {
-                    if (schema.ResolveSpecificTag(tag, out var resolvedTag))
+                    if (resolveSpecificTag(tag, out var resolvedTag))
                     {
                         return resolvedTag;
                     }
                 }
-                return new SimpleTag(tag); // TODO: Maybe use a different type of tag
+                return new SimpleTag<TNode>(tag, _ => throw new NotImplementedException()); // TODO: Maybe use a different type of tag
             }
 
-            public Node Visit(Events.Scalar scalar)
+            public INode Visit(Events.Scalar scalar)
             {
                 var path = currentPath.GetCurrentPath();
-                var tag = ResolveTag(scalar, path, schema.ResolveNonSpecificTag);
+                var tag = ResolveTag<Events.Scalar, Scalar>(scalar, path, schema.ResolveNonSpecificTag, schema.ResolveSpecificTag);
                 return new Scalar(tag, scalar.Value);
             }
 
-            public Node Visit(SequenceStart sequenceStart)
+            public INode Visit(SequenceStart sequenceStart)
             {
                 var path = currentPath.GetCurrentPath();
-                var tag = ResolveTag(sequenceStart, path, schema.ResolveNonSpecificTag);
+                var tag = ResolveTag<SequenceStart, Sequence>(sequenceStart, path, schema.ResolveNonSpecificTag, schema.ResolveSpecificTag);
 
                 currentPath.Push(sequenceStart);
 
-                var items = new List<Node>();
+                var items = new List<INode>();
                 while (parser.TryConsume<NodeEvent>(out var nodeEvent))
                 {
                     var child = nodeEvent.Accept(this);
@@ -128,14 +133,14 @@ namespace YamlDotNet.Representation
                 return new Sequence(tag, items.AsReadonly());
             }
 
-            public Node Visit(MappingStart mappingStart)
+            public INode Visit(MappingStart mappingStart)
             {
                 var path = currentPath.GetCurrentPath();
-                var tag = ResolveTag(mappingStart, path, schema.ResolveNonSpecificTag);
+                var tag = ResolveTag<MappingStart, Mapping>(mappingStart, path, schema.ResolveNonSpecificTag, schema.ResolveSpecificTag);
 
                 currentPath.Push(mappingStart);
 
-                var items = new Dictionary<Node, Node>();
+                var items = new Dictionary<INode, INode>();
                 while (parser.TryConsume<NodeEvent>(out var keyNodeEvent))
                 {
                     var key = keyNodeEvent.Accept(this);
@@ -152,32 +157,32 @@ namespace YamlDotNet.Representation
                 return new Mapping(tag, items.AsReadonly());
             }
 
-            public Node Visit(Comment comment) => throw UnexpectedEvent(comment);
-            public Node Visit(SequenceEnd sequenceEnd) => throw UnexpectedEvent(sequenceEnd);
-            public Node Visit(MappingEnd mappingEnd) => throw UnexpectedEvent(mappingEnd);
-            public Node Visit(DocumentStart documentStart) => throw UnexpectedEvent(documentStart);
-            public Node Visit(DocumentEnd documentEnd) => throw UnexpectedEvent(documentEnd);
-            public Node Visit(StreamStart streamStart) => throw UnexpectedEvent(streamStart);
-            public Node Visit(StreamEnd streamEnd) => throw UnexpectedEvent(streamEnd);
+            public INode Visit(Comment comment) => throw UnexpectedEvent(comment);
+            public INode Visit(SequenceEnd sequenceEnd) => throw UnexpectedEvent(sequenceEnd);
+            public INode Visit(MappingEnd mappingEnd) => throw UnexpectedEvent(mappingEnd);
+            public INode Visit(DocumentStart documentStart) => throw UnexpectedEvent(documentStart);
+            public INode Visit(DocumentEnd documentEnd) => throw UnexpectedEvent(documentEnd);
+            public INode Visit(StreamStart streamStart) => throw UnexpectedEvent(streamStart);
+            public INode Visit(StreamEnd streamEnd) => throw UnexpectedEvent(streamEnd);
         }
 
         private sealed class AnchorAssigner : INodeVisitor
         {
-            private readonly Func<Node, AnchorName> assignAnchor;
-            private readonly HashSet<Node> encounteredNodes = new HashSet<Node>(ReferenceEqualityComparer<Node>.Instance);
-            private readonly Dictionary<Node, AnchorName> assignedAnchors = new Dictionary<Node, AnchorName>(ReferenceEqualityComparer<Node>.Instance);
+            private readonly Func<INode, AnchorName> assignAnchor;
+            private readonly HashSet<INode> encounteredNodes = new HashSet<INode>(ReferenceEqualityComparer<INode>.Instance);
+            private readonly Dictionary<INode, AnchorName> assignedAnchors = new Dictionary<INode, AnchorName>(ReferenceEqualityComparer<INode>.Instance);
 
-            public AnchorAssigner(Func<Node, AnchorName> assignAnchor)
+            public AnchorAssigner(Func<INode, AnchorName> assignAnchor)
             {
                 this.assignAnchor = assignAnchor ?? throw new ArgumentNullException(nameof(assignAnchor));
             }
 
-            public Dictionary<Node, AnchorName> GetAssignedAnchors()
+            public Dictionary<INode, AnchorName> GetAssignedAnchors()
             {
                 return assignedAnchors;
             }
 
-            private void VisitNode(Node node)
+            private void VisitNode(INode node)
             {
                 if (!encounteredNodes.Add(node))
                 {
@@ -194,10 +199,10 @@ namespace YamlDotNet.Representation
         {
             private readonly IEmitter emitter;
             private readonly ISchema schema;
-            private readonly Dictionary<Node, AnchorName> anchors;
-            private readonly HashSet<Node> emittedAnchoredNodes = new HashSet<Node>(ReferenceEqualityComparer<Node>.Instance);
+            private readonly Dictionary<INode, AnchorName> anchors;
+            private readonly HashSet<INode> emittedAnchoredNodes = new HashSet<INode>(ReferenceEqualityComparer<INode>.Instance);
 
-            public NodeDumper(IEmitter emitter, ISchema schema, Dictionary<Node, AnchorName> anchors)
+            public NodeDumper(IEmitter emitter, ISchema schema, Dictionary<INode, AnchorName> anchors)
             {
                 this.emitter = emitter ?? throw new ArgumentNullException(nameof(emitter));
                 this.schema = schema ?? throw new ArgumentNullException(nameof(schema));
@@ -242,7 +247,7 @@ namespace YamlDotNet.Representation
                 }
             }
 
-            private bool TryEmitAlias(Node node, out AnchorName anchor)
+            private bool TryEmitAlias(INode node, out AnchorName anchor)
             {
                 if (anchors.TryGetValue(node, out anchor) && !emittedAnchoredNodes.Add(node))
                 {
@@ -252,114 +257,5 @@ namespace YamlDotNet.Representation
                 return false;
             }
         }
-    }
-
-    public interface INodeVisitor
-    {
-        void Visit(Scalar scalar);
-        void Visit(Sequence sequence);
-        void Visit(Mapping mapping);
-    }
-
-    public sealed class Document
-    {
-        public Node Content { get; }
-        public ISchema Schema { get; }
-
-        public Document(Node content, ISchema schema)
-        {
-            this.Content = content ?? throw new ArgumentNullException(nameof(content));
-            this.Schema = schema ?? throw new ArgumentNullException(nameof(schema));
-        }
-    }
-
-    public abstract class Node
-    {
-        public ITag Tag { get; }
-
-        protected Node(ITag tag)
-        {
-            this.Tag = tag ?? throw new ArgumentNullException(nameof(tag));
-        }
-
-        public abstract void Accept(INodeVisitor visitor);
-    }
-
-    public sealed class Scalar : Node
-    {
-        public string Value { get; }
-
-        public Scalar(ITag tag, string value)
-            : base(tag)
-        {
-            this.Value = value ?? throw new ArgumentNullException(nameof(value));
-        }
-
-        public override void Accept(INodeVisitor visitor) => visitor.Visit(this);
-    }
-
-    public sealed class Sequence : Node, IReadOnlyList<Node>
-    {
-        private readonly IReadOnlyList<Node> items;
-
-        public Sequence(ITag tag, IReadOnlyList<Node> items)
-            : base(tag)
-        {
-            this.items = items ?? throw new ArgumentNullException(nameof(items));
-        }
-
-        public int Count => this.items.Count;
-        public Node this[int index] => this.items[index];
-
-        public IEnumerator<Node> GetEnumerator() => this.items.GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-        public override void Accept(INodeVisitor visitor) => visitor.Visit(this);
-    }
-
-    public sealed class Mapping : Node, IReadOnlyDictionary<Node, Node>
-    {
-        private readonly IReadOnlyDictionary<Node, Node> items;
-
-        public Mapping(ITag tag, IReadOnlyDictionary<Node, Node> items)
-            : base(tag)
-        {
-            this.items = items ?? throw new ArgumentNullException(nameof(items));
-        }
-
-        public Node this[string key]
-        {
-            get
-            {
-                foreach (var item in this)
-                {
-                    if (item.Key is Scalar scalar && scalar.Value == key)
-                    {
-                        return item.Value;
-                    }
-                }
-                throw new KeyNotFoundException($"Key '{key}' not found.");
-            }
-        }
-
-        public int Count => this.items.Count;
-        public Node this[Node key] => this.items[key];
-        public IEnumerable<Node> Keys => this.items.Keys;
-        public IEnumerable<Node> Values => this.items.Values;
-
-        public bool ContainsKey(Node key)
-        {
-            return this.items.ContainsKey(key);
-        }
-
-        public bool TryGetValue(Node key, [MaybeNullWhen(false)] out Node value)
-        {
-            return this.items.TryGetValue(key, out value!);
-        }
-
-        public IEnumerator<KeyValuePair<Node, Node>> GetEnumerator() => this.items.GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-        public override void Accept(INodeVisitor visitor) => visitor.Visit(this);
     }
 }

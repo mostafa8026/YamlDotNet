@@ -8,13 +8,13 @@ namespace YamlDotNet.Representation.Schemas
     /// </summary>
     public sealed class JsonSchema : RegexBasedSchema
     {
-        private JsonSchema(ITag fallbackTag) : base(BuildMappingTable(), fallbackTag) { }
+        private JsonSchema(ITag<Scalar>? fallbackTag) : base(BuildMappingTable(), fallbackTag) { }
 
         /// <summary>
         /// A version of the <see cref="JsonSchema"/> that conforms strictly to the specification
         /// by not resolving any unrecognized scalars.
         /// </summary>
-        public static readonly JsonSchema Strict = new JsonSchema(SimpleTag.NonSpecificOtherNodes);
+        public static readonly JsonSchema Strict = new JsonSchema(null);
 
         /// <summary>
         /// A version of the <see cref="JsonSchema"/> that treats unrecognized scalars as strings.

@@ -12,9 +12,9 @@ namespace YamlDotNet.Representation.Schemas
 {
     public abstract class RegexBasedSchema : ISchema
     {
-        protected interface IRegexBasedTag : ITag
+        protected interface IRegexBasedTag : ITag<Scalar>
         {
-            bool Matches(string value, [NotNullWhen(true)] out ITag? resultingTag);
+            bool Matches(string value, [NotNullWhen(true)] out ITag<Scalar>? resultingTag);
         }
 
         private sealed class CompositeRegexBasedTag : IRegexBasedTag
@@ -22,31 +22,34 @@ namespace YamlDotNet.Representation.Schemas
             private readonly IRegexBasedTag[] subTags;
 
             public TagName Name { get; }
-            public ScalarParser? ScalarParser { get; }
 
             public CompositeRegexBasedTag(TagName name, IEnumerable<IRegexBasedTag> subTags)
             {
                 Name = name;
                 this.subTags = subTags.ToArray();
-
-                ScalarParser = ParseScalar;
             }
 
-            private object? ParseScalar(Scalar scalar)
+
+            public object? Construct(Scalar node)
             {
-                var value = scalar.Value;
+                var value = node.Value;
                 foreach (var subTag in subTags)
                 {
                     if (subTag.Matches(value, out var resultingTag))
                     {
-                        return resultingTag.ScalarParser!(scalar);
+                        return resultingTag.Construct(node);
                     }
                 }
 
                 throw new SemanticErrorException($"The value '{value}' could not be parsed as '{Name}'.");
             }
 
-            public bool Matches(string value, [NotNullWhen(true)] out ITag? resultingTag)
+            public Scalar Represent(object? native)
+            {
+                throw new NotImplementedException();
+            }
+
+            public bool Matches(string value, [NotNullWhen(true)] out ITag<Scalar>? resultingTag)
             {
                 foreach (var subTag in subTags)
                 {
@@ -64,20 +67,28 @@ namespace YamlDotNet.Representation.Schemas
         private sealed class RegexBasedTag : IRegexBasedTag
         {
             private readonly Regex pattern;
-            public TagName Name { get; }
-            public ScalarParser? ScalarParser { get; }
+            private readonly Func<Scalar, object?> constructor;
 
-            public RegexBasedTag(TagName name, Regex pattern, ScalarParser scalarParser)
+            public TagName Name { get; }
+
+            public RegexBasedTag(TagName name, Regex pattern, Func<Scalar, object?> constructor)
             {
                 Name = name;
                 this.pattern = pattern ?? throw new ArgumentNullException(nameof(pattern));
-                ScalarParser = scalarParser ?? throw new ArgumentNullException(nameof(scalarParser));
+                this.constructor = constructor ?? throw new ArgumentNullException(nameof(constructor));
             }
 
-            public bool Matches(string value, [NotNullWhen(true)] out ITag? resultingTag)
+            public bool Matches(string value, [NotNullWhen(true)] out ITag<Scalar>? resultingTag)
             {
                 resultingTag = this;
                 return pattern.IsMatch(value);
+            }
+
+            public object? Construct(Scalar node) => this.constructor(node);
+
+            public Scalar Represent(object? native)
+            {
+                throw new NotImplementedException();
             }
         }
 
@@ -85,14 +96,14 @@ namespace YamlDotNet.Representation.Schemas
         {
             private readonly List<IRegexBasedTag> entries = new List<IRegexBasedTag>();
 
-            public void Add(string pattern, TagName tag, ScalarParser parser)
+            public void Add(string pattern, TagName tag, Func<Scalar, object?> constructor)
             {
-                Add(new Regex(pattern, StandardRegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture), tag, parser);
+                Add(new Regex(pattern, StandardRegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture), tag, constructor);
             }
 
-            public void Add(Regex pattern, TagName tag, ScalarParser parser)
+            public void Add(Regex pattern, TagName tag, Func<Scalar, object?> constructor)
             {
-                entries.Add(new RegexBasedTag(tag, pattern, parser));
+                entries.Add(new RegexBasedTag(tag, pattern, constructor));
             }
 
             public IEnumerator<IRegexBasedTag> GetEnumerator() => entries.GetEnumerator();
@@ -101,14 +112,9 @@ namespace YamlDotNet.Representation.Schemas
         }
 
         private readonly IDictionary<TagName, IRegexBasedTag> tags;
-        private readonly ITag fallbackTag;
+        private readonly ITag<Scalar>? fallbackTag;
 
-        protected RegexBasedSchema(RegexTagMappingTable tagMappingTable)
-            : this(tagMappingTable, new SimpleTag(TagName.Empty))
-        {
-        }
-
-        protected RegexBasedSchema(RegexTagMappingTable tagMappingTable, ITag fallbackTag)
+        protected RegexBasedSchema(RegexTagMappingTable tagMappingTable, ITag<Scalar>? fallbackTag)
         {
             this.tags = tagMappingTable
                 .GroupBy(e => e.Name)
@@ -122,7 +128,7 @@ namespace YamlDotNet.Representation.Schemas
             this.fallbackTag = fallbackTag;
         }
 
-        public bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Scalar>? resolvedTag)
         {
             if (!node.Tag.IsEmpty)
             {
@@ -140,34 +146,46 @@ namespace YamlDotNet.Representation.Schemas
             }
 
             resolvedTag = fallbackTag;
-            return !fallbackTag.Name.IsEmpty;
+            return fallbackTag != null;
         }
 
-        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Mapping>? resolvedTag)
         {
             resolvedTag = FailsafeSchema.Mapping;
             return true;
         }
 
-        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Sequence>? resolvedTag)
         {
             resolvedTag = FailsafeSchema.Sequence;
             return true;
         }
 
-        public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag? resolvedTag)
+        public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Scalar>? resolvedTag)
         {
             if (tags.TryGetValue(tag, out var result))
             {
                 resolvedTag = result;
                 return true;
             }
-            else if (tag.Equals(fallbackTag.Name))
+            else if (fallbackTag != null && tag.Equals(fallbackTag.Name))
             {
                 resolvedTag = fallbackTag;
                 return true;
             }
 
+            resolvedTag = null;
+            return false;
+        }
+
+        public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Sequence>? resolvedTag)
+        {
+            resolvedTag = null;
+            return false;
+        }
+
+        public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Mapping>? resolvedTag)
+        {
             resolvedTag = null;
             return false;
         }

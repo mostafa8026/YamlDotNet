@@ -31,6 +31,7 @@ using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
+using Scalar = YamlDotNet.Representation.Scalar;
 
 namespace YamlDotNet.Test.Core
 {
@@ -96,9 +97,9 @@ namespace YamlDotNet.Test.Core
 
                     - { actual: 'non-plain', expected: !!str 'non-plain' }
 
-                    - { actual: { a: b }, expected: !? { a: b } }
+                    - { actual: { a: b }, expected: !!map { a: b } }
                     - { actual: ! { a: b }, expected: !!map { a: b } }
-                    - { actual: [ a, b ], expected: !? [ a, b ] }
+                    - { actual: [ a, b ], expected: !!seq [ a, b ] }
                     - { actual: ! [ a, b ], expected: !!seq [ a, b ] }
                 "
             );
@@ -206,7 +207,7 @@ namespace YamlDotNet.Test.Core
         {
             var document = Representation.Stream.Load(ParserForText(yaml), _ => schema).Single();
 
-            foreach (Representation.Mapping testCase in (Representation.Sequence)document.Content)
+            foreach (Mapping testCase in (Sequence)document.Content)
             {
                 var expected = testCase["expected"];
                 var actual = testCase["actual"];
@@ -226,25 +227,37 @@ namespace YamlDotNet.Test.Core
 
         private sealed class NullSchema : ISchema
         {
-            public bool ResolveNonSpecificTag(YamlDotNet.Core.Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+            public bool ResolveNonSpecificTag(YamlDotNet.Core.Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Scalar>? resolvedTag)
             {
                 resolvedTag = null;
                 return false;
             }
 
-            public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+            public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Mapping>? resolvedTag)
             {
                 resolvedTag = null;
                 return false;
             }
 
-            public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag? resolvedTag)
+            public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Sequence>? resolvedTag)
             {
                 resolvedTag = null;
                 return false;
             }
 
-            public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag? resolvedTag)
+            public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Scalar>? resolvedTag)
+            {
+                resolvedTag = null;
+                return false;
+            }
+
+            public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Sequence>? resolvedTag)
+            {
+                resolvedTag = null;
+                return false;
+            }
+
+            public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Mapping>? resolvedTag)
             {
                 resolvedTag = null;
                 return false;
