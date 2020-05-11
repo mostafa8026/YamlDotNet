@@ -44,8 +44,9 @@ namespace YamlDotNet.Representation.Schemas
         /// </remarks>
         /// <param name="node">The scalar node for which the tag sould be resolved.</param>
         /// <param name="path">An ordered sequence of the nodes that lead to this scalar (not including this one).</param>
+        /// <param name="style">The style that should be used if the tag is implicit.</param>
         /// <returns>Returns true if the tag can be omitted; otherwise returns false.</returns>
-        bool IsTagImplicit(Events.Scalar node, IEnumerable<CollectionEvent> path);
+        bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path, out ScalarStyle style);
 
         /// <summary>
         /// Determines whether the tag of the specified <paramref name="node"/> is implicit
@@ -56,8 +57,9 @@ namespace YamlDotNet.Representation.Schemas
         /// </remarks>
         /// <param name="node">The mapping node for which the tag sould be resolved.</param>
         /// <param name="path">An ordered sequence of the nodes that lead to this scalar (not including this one).</param>
+        /// <param name="style">The style that should be used if the tag is implicit.</param>
         /// <returns>Returns true if the tag can be omitted; otherwise returns false.</returns>
-        bool IsTagImplicit(MappingStart node, IEnumerable<CollectionEvent> path);
+        bool IsTagImplicit(Mapping node, IEnumerable<CollectionEvent> path, out MappingStyle style);
 
         /// <summary>
         /// Determines whether the tag of the specified <paramref name="node"/> is implicit
@@ -68,8 +70,9 @@ namespace YamlDotNet.Representation.Schemas
         /// </remarks>
         /// <param name="node">The sequence node for which the tag sould be resolved.</param>
         /// <param name="path">An ordered sequence of the nodes that lead to this scalar (not including this one).</param>
+        /// <param name="style">The style that should be used if the tag is implicit.</param>
         /// <returns>Returns true if the tag can be omitted; otherwise returns false.</returns>
-        bool IsTagImplicit(SequenceStart node, IEnumerable<CollectionEvent> path);
+        bool IsTagImplicit(Sequence node, IEnumerable<CollectionEvent> path, out SequenceStyle style);
 
         /// <summary>
         /// Attempts to resolve a specific tag to enrich it with schema information.

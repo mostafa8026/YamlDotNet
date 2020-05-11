@@ -31,12 +31,12 @@ namespace YamlDotNet.Representation
             return LoadDocuments(parser, schemaSelector).SingleUse();
         }
 
-        public static void Dump(IEmitter emitter, IEnumerable<Document> stream)
+        public static void Dump(IEmitter emitter, IEnumerable<Document> stream, bool explicitSeparators = false)
         {
             emitter.Emit(new StreamStart());
             foreach (var document in stream)
             {
-                emitter.Emit(new DocumentStart());
+                emitter.Emit(new DocumentStart(null, null, isImplicit: !explicitSeparators));
 
                 var count = 0;
                 var anchorAssigner = new AnchorAssigner(_ => $"n{count++}");
@@ -45,7 +45,7 @@ namespace YamlDotNet.Representation
                 var dumper = new NodeDumper(emitter, document.Schema, anchorAssigner.GetAssignedAnchors());
                 document.Content.Accept(dumper);
 
-                emitter.Emit(new DocumentEnd(true));
+                emitter.Emit(new DocumentEnd(isImplicit: !explicitSeparators));
             }
             emitter.Emit(new StreamEnd());
         }
@@ -103,7 +103,7 @@ namespace YamlDotNet.Representation
                         return resolvedTag;
                     }
                 }
-                return new SimpleTag<TNode>(tag, _ => throw new NotImplementedException()); // TODO: Maybe use a different type of tag
+                return new SimpleTag<TNode>(tag, _ => throw new NotImplementedException(), (_, __) => throw new NotImplementedException()); // TODO: Maybe use a different type of tag
             }
 
             public INode Visit(Events.Scalar scalar)
@@ -197,6 +197,7 @@ namespace YamlDotNet.Representation
 
         private sealed class NodeDumper : INodeVisitor
         {
+            private readonly NodePath currentPath = new NodePath();
             private readonly IEmitter emitter;
             private readonly ISchema schema;
             private readonly Dictionary<INode, AnchorName> anchors;
@@ -213,8 +214,10 @@ namespace YamlDotNet.Representation
             {
                 if (!TryEmitAlias(scalar, out var anchor))
                 {
-                    // TODO: Style ?
-                    emitter.Emit(new Events.Scalar(anchor, scalar.Tag.Name, scalar.Value));
+                    var path = currentPath.GetCurrentPath();
+                    var tag = schema.IsTagImplicit(scalar, path, out var style) ? TagName.Empty : scalar.Tag.Name;
+                    
+                    emitter.Emit(new Events.Scalar(anchor, tag, scalar.Value, style));
                 }
             }
 
@@ -222,12 +225,17 @@ namespace YamlDotNet.Representation
             {
                 if (!TryEmitAlias(sequence, out var anchor))
                 {
-                    // TODO: Style ?
-                    emitter.Emit(new SequenceStart(anchor, sequence.Tag.Name, SequenceStyle.Any));
+                    var path = currentPath.GetCurrentPath();
+                    var tag = schema.IsTagImplicit(sequence, path, out var style) ? TagName.Empty : sequence.Tag.Name;
+                    
+                    var sequenceStart = new SequenceStart(anchor, tag, style);
+                    emitter.Emit(sequenceStart);
+                    currentPath.Push(sequenceStart);
                     foreach (var item in sequence)
                     {
                         item.Accept(this);
                     }
+                    currentPath.Pop();
                     emitter.Emit(new SequenceEnd());
                 }
             }
@@ -236,13 +244,18 @@ namespace YamlDotNet.Representation
             {
                 if (!TryEmitAlias(mapping, out var anchor))
                 {
-                    // TODO: Style ?
-                    emitter.Emit(new MappingStart(anchor, mapping.Tag.Name, MappingStyle.Any));
+                    var path = currentPath.GetCurrentPath();
+                    var tag = schema.IsTagImplicit(mapping, path, out var style) ? TagName.Empty : mapping.Tag.Name;
+
+                    var mappingStart = new MappingStart(anchor, tag, style);
+                    emitter.Emit(mappingStart);
+                    currentPath.Push(mappingStart);
                     foreach (var pair in mapping)
                     {
                         pair.Key.Accept(this);
                         pair.Value.Accept(this);
                     }
+                    currentPath.Pop();
                     emitter.Emit(new MappingEnd());
                 }
             }

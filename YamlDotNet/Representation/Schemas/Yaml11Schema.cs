@@ -35,47 +35,56 @@ namespace YamlDotNet.Representation.Schemas
                             _ => false
                         }
                     };
-                }
+                },
+                native => true.Equals(native) ? "true" : "false"
             },
             {
                 "^[-+]?0b[0-1_]+$", // Base 2
                 YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase2(s.Value)
+                s => IntegerParser.ParseBase2(s.Value),
+                JsonSchema.FormatInteger
             },
             {
                 "^[-+]?0[0-7_]+$", // Base 8
                 YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase8(s.Value)
+                s => IntegerParser.ParseBase8(s.Value),
+                JsonSchema.FormatInteger
             },
             {
                 "^[-+]?(0|[1-9][0-9_]*)$", // Base 10
                 YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase10(s.Value)
+                s => IntegerParser.ParseBase10(s.Value),
+                JsonSchema.FormatInteger
             },
             {
                 "^[-+]?0x[0-9a-fA-F_]+$", // Base 16
                 YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase16(s.Value)
+                s => IntegerParser.ParseBase16(s.Value),
+                JsonSchema.FormatInteger
             },
             {
                 "^[-+]?[1-9][0-9_]*(:[0-5]?[0-9])+$", // Base 60
                 YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase60(s.Value)
+                s => IntegerParser.ParseBase60(s.Value),
+                JsonSchema.FormatInteger
             },
             {
                 @"^[-+]?([0-9][0-9]*)?\.[0-9]*([eE][-+][0-9]+)?$", // Base 10 unseparated
                 YamlTagRepository.FloatingPoint,
-                s => FloatingPointParser.ParseBase10Unseparated(s.Value)
+                s => FloatingPointParser.ParseBase10Unseparated(s.Value),
+                JsonSchema.FormatFloatingPoint
             },
             {
                 @"^[-+]?([0-9][0-9_]*)?\.[0-9_]*([eE][-+][0-9]+)?$", // Base 10 separated
                 YamlTagRepository.FloatingPoint,
-                s => FloatingPointParser.ParseBase10Separated(s.Value)
+                s => FloatingPointParser.ParseBase10Separated(s.Value),
+                JsonSchema.FormatFloatingPoint
             },
             {
                 @"^[-+]?[0-9][0-9_]*(:[0-5]?[0-9])+\.[0-9_]*$", // Base 60
                 YamlTagRepository.FloatingPoint,
-                s =>FloatingPointParser.ParseBase60(s.Value)
+                s => FloatingPointParser.ParseBase60(s.Value),
+                JsonSchema.FormatFloatingPoint
             },
             {
                 @"^[-+]?\.(inf|Inf|INF)$", // Infinity
@@ -84,17 +93,20 @@ namespace YamlDotNet.Representation.Schemas
                 {
                     '-' => double.NegativeInfinity,
                     _ => double.PositiveInfinity
-                }
+                },
+                JsonSchema.FormatFloatingPoint
             },
             {
                 @"^\.(nan|NaN|NAN)$", // Non a number
                 YamlTagRepository.FloatingPoint,
-                s => double.NaN
+                s => double.NaN,
+                JsonSchema.FormatFloatingPoint
             },
             {
                 "^(null|Null|NULL|~?)$", // Null
                 YamlTagRepository.Null,
-                s => null
+                s => null,
+                _ => "null"
             },
         };
     }

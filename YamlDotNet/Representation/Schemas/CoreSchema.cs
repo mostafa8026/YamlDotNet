@@ -17,7 +17,8 @@ namespace YamlDotNet.Representation.Schemas
             {
                 "^(null|Null|NULL|~?)$",
                 YamlTagRepository.Null,
-                s => null
+                s => null,
+                _ => "null"
             },
             {
                 "^(true|True|TRUE|false|False|FALSE)$",
@@ -27,27 +28,32 @@ namespace YamlDotNet.Representation.Schemas
                 {
                     var firstChar = s.Value[0];
                     return firstChar == 't' || firstChar == 'T';
-                }
+                },
+                JsonSchema.FormatBoolean
             },
             {
                 "^[-+]?[0-9]+$", // Base 10
                 YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase10(s.Value)
+                s => IntegerParser.ParseBase10(s.Value),
+                JsonSchema.FormatInteger
             },
             {
                 "^0o[0-7]+$", // Base 8
                 YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase8Unsigned(s.Value)
+                s => IntegerParser.ParseBase8Unsigned(s.Value),
+                JsonSchema.FormatInteger
             },
             {
                 "^0x[0-9a-fA-F]+$", // Base 16
                 YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase16Unsigned(s.Value)
+                s => IntegerParser.ParseBase16Unsigned(s.Value),
+                JsonSchema.FormatInteger
             },
             {
                 @"^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$",
                 YamlTagRepository.FloatingPoint,
-                s => FloatingPointParser.ParseBase10Unseparated(s.Value)
+                s => FloatingPointParser.ParseBase10Unseparated(s.Value),
+                JsonSchema.FormatFloatingPoint
             },
             {
                 @"^[-+]?(\.inf|\.Inf|\.INF)$",
@@ -56,12 +62,14 @@ namespace YamlDotNet.Representation.Schemas
                 {
                     '-' => double.NegativeInfinity,
                     _ => double.PositiveInfinity
-                }
+                },
+                JsonSchema.FormatFloatingPoint
             },
             {
                 @"^(\.nan|\.NaN|\.NAN)$",
                 YamlTagRepository.FloatingPoint,
-                s => double.NaN
+                s => double.NaN,
+                JsonSchema.FormatFloatingPoint
             },
         };
     }

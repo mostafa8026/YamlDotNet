@@ -19,9 +19,23 @@ namespace YamlDotNet.Representation.Schemas
             this.strict = strict;
         }
 
-        public static readonly ITag<Scalar> String = new SimpleTag<Scalar>(YamlTagRepository.String, s => s.Value);
-        public static readonly ITag<Mapping> Mapping = new SimpleTag<Mapping>(YamlTagRepository.Mapping, _ => throw new NotImplementedException());
-        public static readonly ITag<Sequence> Sequence = new SimpleTag<Sequence>(YamlTagRepository.Sequence, _ => throw new NotImplementedException());
+        public static readonly ITag<Scalar> String = new SimpleTag<Scalar>(
+            YamlTagRepository.String,
+            s => s.Value,
+            (t, v) => new Scalar(t, (string)v!)
+        );
+
+        public static readonly ITag<Mapping> Mapping = new SimpleTag<Mapping>(
+            YamlTagRepository.Mapping,
+            _ => throw new NotImplementedException(),
+            (_, __) => throw new NotImplementedException()
+        );
+
+        public static readonly ITag<Sequence> Sequence = new SimpleTag<Sequence>(
+            YamlTagRepository.Sequence,
+            _ => throw new NotImplementedException(),
+            (_, __) => throw new NotImplementedException()
+        );
 
         /// <summary>
         /// A version of the <see cref="FailsafeSchema"/> that conforms strictly to the specification
@@ -76,19 +90,22 @@ namespace YamlDotNet.Representation.Schemas
             return tag.Equals(Mapping.Name);
         }
 
-        public bool IsTagImplicit(Events.Scalar node, IEnumerable<CollectionEvent> path)
+        public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path, out ScalarStyle style)
         {
-            return node.Tag.Equals(YamlTagRepository.String);
+            style = ScalarStyle.Any;
+            return node.Tag.Name.Equals(YamlTagRepository.String);
         }
 
-        public bool IsTagImplicit(MappingStart node, IEnumerable<CollectionEvent> path)
+        public bool IsTagImplicit(Mapping node, IEnumerable<CollectionEvent> path, out MappingStyle style)
         {
-            return node.Tag.Equals(YamlTagRepository.Mapping);
+            style = MappingStyle.Any;
+            return node.Tag.Name.Equals(YamlTagRepository.Mapping);
         }
 
-        public bool IsTagImplicit(SequenceStart node, IEnumerable<CollectionEvent> path)
+        public bool IsTagImplicit(Sequence node, IEnumerable<CollectionEvent> path, out SequenceStyle style)
         {
-            return node.Tag.Equals(YamlTagRepository.Sequence);
+            style = SequenceStyle.Any;
+            return node.Tag.Name.Equals(YamlTagRepository.Sequence);
         }
     }
 }

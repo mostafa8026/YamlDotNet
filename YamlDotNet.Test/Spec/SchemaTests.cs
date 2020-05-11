@@ -21,12 +21,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using Xunit;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
+using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
+using Events = YamlDotNet.Core.Events;
+using Stream = YamlDotNet.Representation.Stream;
 
 namespace YamlDotNet.Test.Spec
 {
@@ -54,15 +58,15 @@ namespace YamlDotNet.Test.Spec
 
             while (!parser.TryConsume<MappingEnd>(out _))
             {
-                var inputYaml = parser.Consume<Scalar>();
+                var inputYaml = parser.Consume<Events.Scalar>();
                 parser.Consume<MappingStart>();
                 while (!parser.TryConsume<MappingEnd>(out _))
                 {
-                    var schemaIds = parser.Consume<Scalar>();
+                    var schemaIds = parser.Consume<Events.Scalar>();
                     parser.Consume<SequenceStart>();
-                    var type = parser.Consume<Scalar>().Value;
-                    var loadedValueText = parser.Consume<Scalar>().Value;
-                    var dumpedYaml = parser.Consume<Scalar>().Value;
+                    var type = parser.Consume<Events.Scalar>().Value;
+                    var loadedValueText = parser.Consume<Events.Scalar>().Value;
+                    var dumpedYaml = parser.Consume<Events.Scalar>().Value;
                     parser.Consume<SequenceEnd>();
 
                     foreach (var schemaId in schemaIds.Value.Split(','))
@@ -138,10 +142,11 @@ namespace YamlDotNet.Test.Spec
 
             using var reader = new StringReader("--- " + inputYaml);
 
-            var document = Representation.Stream.Load(new Parser(reader), _ => schema).Single();
+            var document = Stream.Load(new Parser(reader), _ => schema).Single();
 
             var actual = (Representation.Scalar)document.Content;
 
+            // Check expected tag
             var expectedTag = YamlTagRepository.Prefix + type switch
             {
                 "inf" => "float",
@@ -150,51 +155,51 @@ namespace YamlDotNet.Test.Spec
             };
             Assert.Equal(expectedTag, actual.Tag.Name.Value);
 
-            //var scalarParser = actual.Tag.ScalarParser!;
-            //Assert.NotNull(scalarParser);
-            //var actualLoadedValue = scalarParser(actual);
+            // Check loaded value
+            var actualLoadedValue = actual.Tag.Construct(actual);
 
-            //object? expectedLoadedValue;
-            //if (expectedLoadedValueText.EndsWith("()"))
-            //{
-            //    if (!Functions.TryGetValue(expectedLoadedValueText, out expectedLoadedValue))
-            //    {
-            //        throw new KeyNotFoundException($"Function '{expectedLoadedValueText}' not found");
-            //    }
-            //}
-            //else if (actual.Tag.Name == YamlTagRepository.Integer)
-            //{
-            //    if (actualLoadedValue is long)
-            //    {
-            //        expectedLoadedValue = long.Parse(expectedLoadedValueText, CultureInfo.InvariantCulture);
-            //    }
-            //    else
-            //    {
-            //        expectedLoadedValue = ulong.Parse(expectedLoadedValueText, CultureInfo.InvariantCulture);
-            //    }
-            //}
-            //else if (actual.Tag.Name == YamlTagRepository.FloatingPoint)
-            //{
-            //    expectedLoadedValue = double.Parse(expectedLoadedValueText, CultureInfo.InvariantCulture);
-            //}
-            //else
-            //{
-            //    expectedLoadedValue = expectedLoadedValueText;
-            //}
+            object? expectedLoadedValue;
+            if (expectedLoadedValueText.EndsWith("()"))
+            {
+                if (!Functions.TryGetValue(expectedLoadedValueText, out expectedLoadedValue))
+                {
+                    throw new KeyNotFoundException($"Function '{expectedLoadedValueText}' not found");
+                }
+            }
+            else if (actual.Tag.Name == YamlTagRepository.Integer)
+            {
+                if (actualLoadedValue is long)
+                {
+                    expectedLoadedValue = long.Parse(expectedLoadedValueText, CultureInfo.InvariantCulture);
+                }
+                else
+                {
+                    expectedLoadedValue = ulong.Parse(expectedLoadedValueText, CultureInfo.InvariantCulture);
+                }
+            }
+            else if (actual.Tag.Name == YamlTagRepository.FloatingPoint)
+            {
+                expectedLoadedValue = double.Parse(expectedLoadedValueText, CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                expectedLoadedValue = expectedLoadedValueText;
+            }
 
-            //Assert.Equal(expectedLoadedValue, actualLoadedValue);
+            Assert.Equal(expectedLoadedValue, actualLoadedValue);
 
-            //var buffer = new StringWriter();
-            //var emitter = new SchemaAwareEmitter(new Emitter(buffer), schema);
-            
-            //emitter.Emit(new StreamStart());
-            //emitter.Emit(new DocumentStart(null, null, isImplicit: false));
-            //emitter.Emit(actual);
-            //emitter.Emit(new DocumentEnd(true));
-            //emitter.Emit(new StreamEnd());
-            //var emittedYaml = buffer.ToString();
+            // Check dumped value
+            var dumpedScalar = actual.Tag.Represent(actualLoadedValue);
 
-            //Assert.Equal("--- " + dumpedYaml + Environment.NewLine, emittedYaml);
+            var buffer = new StringWriter();
+            Stream.Dump(new Emitter(buffer), new[] { new Document(dumpedScalar, schema) }, explicitSeparators: true);
+            var emittedYaml = buffer.ToString();
+
+            if (schema is JsonSchema)
+            {
+                dumpedYaml = dumpedYaml.Replace('\'', '"');
+            }
+            Assert.Equal("--- " + dumpedYaml + Environment.NewLine + "..." + Environment.NewLine, emittedYaml);
         }
     }
 }

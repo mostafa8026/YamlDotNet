@@ -263,18 +263,21 @@ namespace YamlDotNet.Test.Core
                 return false;
             }
 
-            public bool IsTagImplicit(YamlDotNet.Core.Events.Scalar node, IEnumerable<CollectionEvent> path)
+            public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path, out ScalarStyle style)
             {
+                style = ScalarStyle.Any;
                 return false;
             }
 
-            public bool IsTagImplicit(MappingStart node, IEnumerable<CollectionEvent> path)
+            public bool IsTagImplicit(Mapping node, IEnumerable<CollectionEvent> path, out MappingStyle style)
             {
+                style = MappingStyle.Any;
                 return false;
             }
 
-            public bool IsTagImplicit(SequenceStart node, IEnumerable<CollectionEvent> path)
+            public bool IsTagImplicit(Sequence node, IEnumerable<CollectionEvent> path, out SequenceStyle style)
             {
+                style = SequenceStyle.Any;
                 return false;
             }
         }
