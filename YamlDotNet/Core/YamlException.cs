@@ -26,7 +26,9 @@ namespace YamlDotNet.Core
     /// <summary>
     /// Base exception that is thrown when the a problem occurs in the YamlDotNet library.
     /// </summary>
+#pragma warning disable CA1032 // Implement standard exception constructors
     public class YamlException : Exception
+#pragma warning restore CA1032 // Implement standard exception constructors
     {
         /// <summary>
         /// Gets the position in the input stream where the event that originated the exception starts.

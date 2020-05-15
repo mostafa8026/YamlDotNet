@@ -29,7 +29,7 @@ namespace YamlDotNet.Representation.Schemas
             NegativeInfinitySymbol = "-.inf",
         };
 
-        private JsonSchema(ITag<Scalar>? fallbackTag) : base(BuildMappingTable(), fallbackTag, ScalarStyle.DoubleQuoted, SequenceStyle.Flow, MappingStyle.Flow) { }
+        private JsonSchema(IScalarMapper? fallbackTag) : base(BuildMappingTable(), fallbackTag, ScalarStyle.DoubleQuoted, SequenceStyle.Flow, MappingStyle.Flow) { }
 
         /// <summary>
         /// A version of the <see cref="JsonSchema"/> that conforms strictly to the specification
@@ -40,7 +40,7 @@ namespace YamlDotNet.Representation.Schemas
         /// <summary>
         /// A version of the <see cref="JsonSchema"/> that treats unrecognized scalars as strings.
         /// </summary>
-        public static readonly JsonSchema Lenient = new JsonSchema(FailsafeSchema.String);
+        public static readonly JsonSchema Lenient = new JsonSchema(StringTag.Instance);
 
         private static RegexTagMappingTable BuildMappingTable() => new RegexTagMappingTable
         {

@@ -8,7 +8,7 @@ namespace YamlDotNet.Representation.Schemas
     /// </summary>
     public sealed class Yaml11Schema : RegexBasedSchema
     {
-        private Yaml11Schema() : base(BuildMappingTable(), FailsafeSchema.String) { }
+        private Yaml11Schema() : base(BuildMappingTable(), StringTag.Instance) { }
 
         public static readonly Yaml11Schema Instance = new Yaml11Schema();
 

@@ -8,7 +8,7 @@ namespace YamlDotNet.Representation.Schemas
     /// </summary>
     public sealed class CoreSchema : RegexBasedSchema
     {
-        private CoreSchema() : base(BuildMappingTable(), FailsafeSchema.String) { }
+        private CoreSchema() : base(BuildMappingTable(), StringTag.Instance) { }
 
         public static readonly CoreSchema Instance = new CoreSchema();
 

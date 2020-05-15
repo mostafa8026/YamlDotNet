@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
@@ -19,24 +18,6 @@ namespace YamlDotNet.Representation.Schemas
             this.strict = strict;
         }
 
-        public static readonly ITag<Scalar> String = new SimpleTag<Scalar>(
-            YamlTagRepository.String,
-            s => s.Value,
-            (t, v) => new Scalar(t, (string)v!)
-        );
-
-        public static readonly ITag<Mapping> Mapping = new SimpleTag<Mapping>(
-            YamlTagRepository.Mapping,
-            _ => throw new NotImplementedException(),
-            (_, __) => throw new NotImplementedException()
-        );
-
-        public static readonly ITag<Sequence> Sequence = new SimpleTag<Sequence>(
-            YamlTagRepository.Sequence,
-            _ => throw new NotImplementedException(),
-            (_, __) => throw new NotImplementedException()
-        );
-
         /// <summary>
         /// A version of the <see cref="FailsafeSchema"/> that conforms strictly to the specification
         /// by not resolving any unrecognized scalars.
@@ -48,7 +29,7 @@ namespace YamlDotNet.Representation.Schemas
         /// </summary>
         public static readonly FailsafeSchema Lenient = new FailsafeSchema(false);
 
-        public bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Scalar>? resolvedTag)
+        public bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out IScalarMapper? resolvedTag)
         {
             if (node.Tag.IsEmpty && strict)
             {
@@ -56,56 +37,44 @@ namespace YamlDotNet.Representation.Schemas
                 return false;
             }
 
-            resolvedTag = String;
+            resolvedTag = StringTag.Instance;
             return true;
         }
 
-        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Mapping>? resolvedTag)
+        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out TagName resolvedTag)
         {
-            resolvedTag = Mapping;
+            resolvedTag = YamlTagRepository.Mapping;
             return true;
         }
 
-        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Sequence>? resolvedTag)
+        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out TagName resolvedTag)
         {
-            resolvedTag = Sequence;
+            resolvedTag = YamlTagRepository.Sequence;
             return true;
         }
 
-        public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Scalar>? resolvedTag)
+        public bool ResolveScalarMapper(TagName tag, [NotNullWhen(true)] out IScalarMapper? resolvedTag)
         {
-            resolvedTag = String;
-            return tag.Equals(String.Name);
-        }
-
-        public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Sequence>? resolvedTag)
-        {
-            resolvedTag = Sequence;
-            return tag.Equals(Sequence.Name);
-        }
-
-        public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Mapping>? resolvedTag)
-        {
-            resolvedTag = Mapping;
-            return tag.Equals(Mapping.Name);
+            resolvedTag = StringTag.Instance;
+            return tag.Equals(resolvedTag.Tag);
         }
 
         public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path, out ScalarStyle style)
         {
             style = ScalarStyle.Any;
-            return node.Tag.Name.Equals(YamlTagRepository.String);
+            return node.Tag.Equals(YamlTagRepository.String);
         }
 
         public bool IsTagImplicit(Mapping node, IEnumerable<CollectionEvent> path, out MappingStyle style)
         {
             style = MappingStyle.Any;
-            return node.Tag.Name.Equals(YamlTagRepository.Mapping);
+            return node.Tag.Equals(YamlTagRepository.Mapping);
         }
 
         public bool IsTagImplicit(Sequence node, IEnumerable<CollectionEvent> path, out SequenceStyle style)
         {
             style = SequenceStyle.Any;
-            return node.Tag.Name.Equals(YamlTagRepository.Sequence);
+            return node.Tag.Equals(YamlTagRepository.Sequence);
         }
     }
 }

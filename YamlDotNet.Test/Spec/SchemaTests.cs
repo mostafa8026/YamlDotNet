@@ -153,10 +153,10 @@ namespace YamlDotNet.Test.Spec
                 "nan" => "float",
                 _ => type
             };
-            Assert.Equal(expectedTag, actual.Tag.Name.Value);
+            Assert.Equal(expectedTag, actual.Tag.Value);
 
             // Check loaded value
-            var actualLoadedValue = actual.Tag.Construct(actual);
+            var actualLoadedValue = actual.Mapper.Construct(actual);
 
             object? expectedLoadedValue;
             if (expectedLoadedValueText.EndsWith("()"))
@@ -166,7 +166,7 @@ namespace YamlDotNet.Test.Spec
                     throw new KeyNotFoundException($"Function '{expectedLoadedValueText}' not found");
                 }
             }
-            else if (actual.Tag.Name == YamlTagRepository.Integer)
+            else if (actual.Tag == YamlTagRepository.Integer)
             {
                 if (actualLoadedValue is long)
                 {
@@ -177,7 +177,7 @@ namespace YamlDotNet.Test.Spec
                     expectedLoadedValue = ulong.Parse(expectedLoadedValueText, CultureInfo.InvariantCulture);
                 }
             }
-            else if (actual.Tag.Name == YamlTagRepository.FloatingPoint)
+            else if (actual.Tag == YamlTagRepository.FloatingPoint)
             {
                 expectedLoadedValue = double.Parse(expectedLoadedValueText, CultureInfo.InvariantCulture);
             }
@@ -189,7 +189,7 @@ namespace YamlDotNet.Test.Spec
             Assert.Equal(expectedLoadedValue, actualLoadedValue);
 
             // Check dumped value
-            var dumpedScalar = actual.Tag.Represent(actualLoadedValue);
+            var dumpedScalar = actual.Mapper.Represent(actualLoadedValue);
 
             var buffer = new StringWriter();
             Stream.Dump(new Emitter(buffer), new[] { new Document(dumpedScalar, schema) }, explicitSeparators: true);

@@ -215,49 +215,37 @@ namespace YamlDotNet.Test.Core
                 output.WriteLine("actual: {0}\nexpected: {1}\n\n", actual, expected);
 
                 // Since we can't specify the '?' tag, we'll use '!?' and translate here
-                var expectedTag = expected.Tag.Name;
+                var expectedTag = expected.Tag;
                 if (expectedTag.Value == "!?")
                 {
                     expectedTag = TagName.Empty;
                 }
 
-                Assert.Equal(expectedTag, actual.Tag.Name);
+                Assert.Equal(expectedTag, actual.Tag);
             }
         }
 
         private sealed class NullSchema : ISchema
         {
-            public bool ResolveNonSpecificTag(YamlDotNet.Core.Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Scalar>? resolvedTag)
+            public bool ResolveNonSpecificTag(YamlDotNet.Core.Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out IScalarMapper? mapper)
             {
-                resolvedTag = null;
+                mapper = null;
                 return false;
             }
 
-            public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Mapping>? resolvedTag)
+            public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out TagName resolvedTag)
             {
-                resolvedTag = null;
+                resolvedTag = TagName.Empty;
                 return false;
             }
 
-            public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out ITag<Sequence>? resolvedTag)
+            public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out TagName resolvedTag)
             {
-                resolvedTag = null;
+                resolvedTag = TagName.Empty;
                 return false;
             }
 
-            public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Scalar>? resolvedTag)
-            {
-                resolvedTag = null;
-                return false;
-            }
-
-            public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Sequence>? resolvedTag)
-            {
-                resolvedTag = null;
-                return false;
-            }
-
-            public bool ResolveSpecificTag(TagName tag, [NotNullWhen(true)] out ITag<Mapping>? resolvedTag)
+            public bool ResolveScalarMapper(TagName tag, [NotNullWhen(true)] out IScalarMapper? resolvedTag)
             {
                 resolvedTag = null;
                 return false;

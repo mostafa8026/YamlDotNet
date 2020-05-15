@@ -1,20 +1,20 @@
 ﻿using System;
+using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation
 {
-    public sealed class Scalar : INode
+    public sealed class Scalar : Node
     {
-        public ITag<Scalar> Tag { get; }
+        public IScalarMapper Mapper { get; }
         public string Value { get; }
 
-        public Scalar(ITag<Scalar> tag, string value)
+        public Scalar(IScalarMapper mapper, string value) : base(mapper.Tag)
         {
-            Tag = tag;
-            this.Value = value ?? throw new ArgumentNullException(nameof(value));
+            Mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            Value = value ?? throw new ArgumentNullException(nameof(value));
         }
 
-        ITag INode.Tag => Tag;
-        public void Accept(INodeVisitor visitor) => visitor.Visit(this);
+        public override T Accept<T>(INodeVisitor<T> visitor) => visitor.Visit(this);
 
         public override string ToString() => $"Scalar {Tag} '{Value}'";
     }
