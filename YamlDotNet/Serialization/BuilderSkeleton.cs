@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using YamlDotNet.Core;
+using YamlDotNet.Representation.Schemas;
 using YamlDotNet.Serialization.Converters;
 using YamlDotNet.Serialization.NamingConventions;
 using YamlDotNet.Serialization.TypeInspectors;
@@ -35,6 +36,7 @@ namespace YamlDotNet.Serialization
     public abstract class BuilderSkeleton<TBuilder>
         where TBuilder : BuilderSkeleton<TBuilder>
     {
+        internal ISchema schema = CoreSchema.Instance;
         internal INamingConvention namingConvention = NullNamingConvention.Instance;
         internal ITypeResolver typeResolver;
         internal readonly YamlAttributeOverrides overrides;
@@ -73,9 +75,17 @@ namespace YamlDotNet.Serialization
         }
 
         /// <summary>
+        /// Specifies the base schema that will be used.
+        /// </summary>
+        public TBuilder WithSchema(ISchema schema)
+        {
+            this.schema = schema;
+            return Self;
+        }
+
+        /// <summary>
         /// Prevents serialization and deserialization of fields.
         /// </summary>
-        /// <returns></returns>
         public TBuilder IgnoreFields()
         {
             ignoreFields = true;

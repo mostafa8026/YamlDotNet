@@ -22,9 +22,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Xunit;
 using Xunit.Abstractions;
 using YamlDotNet.Core;
@@ -32,10 +30,11 @@ using YamlDotNet.Core.Events;
 using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
 using Scalar = YamlDotNet.Representation.Scalar;
+using Stream = YamlDotNet.Representation.Stream;
 
-namespace YamlDotNet.Test.Core
+namespace YamlDotNet.Test.Representation
 {
-    public class SchemaTests : EventsHelper
+    public class SchemaTests
     {
         private readonly ITestOutputHelper output;
 
@@ -173,39 +172,9 @@ namespace YamlDotNet.Test.Core
             );
         }
 
-        private IParser ParserForText(string yamlText)
-        {
-            var lines = yamlText
-                .Split('\n')
-                .Select(l => l.TrimEnd('\r', '\n'))
-                .SkipWhile(l => l.Trim(' ', '\t').Length == 0)
-                .ToList();
-
-            while (lines.Count > 0 && lines[lines.Count - 1].Trim(' ', '\t').Length == 0)
-            {
-                lines.RemoveAt(lines.Count - 1);
-            }
-
-            if (lines.Count > 0)
-            {
-                var indent = Regex.Match(lines[0], @"^(\s+)");
-                if (!indent.Success)
-                {
-                    throw new ArgumentException("Invalid indentation");
-                }
-
-                lines = lines
-                    .Select(l => l.Substring(Math.Min(indent.Groups[1].Length, l.Length)))
-                    .ToList();
-            }
-
-            var reader = new StringReader(string.Join("\n", lines.ToArray()));
-            return new Parser(reader);
-        }
-
         private void AssertParseWithSchemaProducesCorrectTags(ISchema schema, string yaml)
         {
-            var document = Representation.Stream.Load(ParserForText(yaml), _ => schema).Single();
+            var document = Stream.Load(Yaml.ParserForText(yaml), _ => schema).Single();
 
             foreach (Mapping testCase in (Sequence)document.Content)
             {
@@ -227,46 +196,51 @@ namespace YamlDotNet.Test.Core
 
         private sealed class NullSchema : ISchema
         {
-            public bool ResolveNonSpecificTag(YamlDotNet.Core.Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out IScalarMapper? mapper)
-            {
-                mapper = null;
-                return false;
-            }
-
-            public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out TagName resolvedTag)
-            {
-                resolvedTag = TagName.Empty;
-                return false;
-            }
-
-            public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out TagName resolvedTag)
-            {
-                resolvedTag = TagName.Empty;
-                return false;
-            }
-
-            public bool ResolveScalarMapper(TagName tag, [NotNullWhen(true)] out IScalarMapper? resolvedTag)
+            public bool ResolveNonSpecificTag(YamlDotNet.Core.Events.Scalar node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
             {
                 resolvedTag = null;
                 return false;
             }
 
-            public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path, out ScalarStyle style)
+            public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
             {
-                style = ScalarStyle.Any;
+                resolvedTag = null;
                 return false;
             }
 
-            public bool IsTagImplicit(Mapping node, IEnumerable<CollectionEvent> path, out MappingStyle style)
+            public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
             {
-                style = MappingStyle.Any;
+                resolvedTag = null;
                 return false;
             }
 
-            public bool IsTagImplicit(Sequence node, IEnumerable<CollectionEvent> path, out SequenceStyle style)
+            public bool IsTagImplicit(Scalar node, IEnumerable<INodePathSegment> path, out ScalarStyle style)
             {
-                style = SequenceStyle.Any;
+                style = default;
                 return false;
+            }
+
+            public bool IsTagImplicit(Mapping node, IEnumerable<INodePathSegment> path, out MappingStyle style)
+            {
+                style = default;
+                return false;
+            }
+
+            public bool IsTagImplicit(Sequence node, IEnumerable<INodePathSegment> path, out SequenceStyle style)
+            {
+                style = default;
+                return false;
+            }
+
+            public bool ResolveMapper(TagName tag, [NotNullWhen(true)] out INodeMapper? mapper)
+            {
+                mapper = null;
+                return false;
+            }
+
+            public INodeMapper ResolveMapper(object? native, IEnumerable<INodePathSegment> path)
+            {
+                return null; // TODO
             }
         }
     }

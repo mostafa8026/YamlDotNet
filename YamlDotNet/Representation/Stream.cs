@@ -1,5 +1,27 @@
-﻿using System;
+﻿//  This file is part of YamlDotNet - A .NET library for YAML.
+//  Copyright (c) Antoine Aubry and contributors
+
+//  Permission is hereby granted, free of charge, to any person obtaining a copy of
+//  this software and associated documentation files (the "Software"), to deal in
+//  the Software without restriction, including without limitation the rights to
+//  use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+//  of the Software, and to permit persons to whom the Software is furnished to do
+//  so, subject to the following conditions:
+
+//  The above copyright notice and this permission notice shall be included in all
+//  copies or substantial portions of the Software.
+
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//  SOFTWARE.
+
+using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Helpers;
@@ -78,89 +100,50 @@ namespace YamlDotNet.Representation
 
             public Node Visit(Events.Scalar scalar)
             {
-                var mapper = ResolveScalar(scalar);
-                return new Scalar(mapper, scalar.Value);
-            }
-
-            private IScalarMapper ResolveScalar(Events.Scalar scalar)
-            {
-                var path = currentPath.GetCurrentPath();
-                if (scalar.Tag.IsNonSpecific)
+                using (currentPath.Push(scalar))
                 {
-                    if (schema.ResolveNonSpecificTag(scalar, path, out var resolvedTag))
-                    {
-                        return resolvedTag;
-                    }
+                    var mapper = ResolveNode(scalar, schema.ResolveNonSpecificTag);
+                    return new Scalar(mapper, scalar.Value);
                 }
-                else if (schema.ResolveScalarMapper(scalar.Tag, out var resolvedTag))
-                {
-                    return resolvedTag;
-                }
-
-                // TODO: Maybe use a different type of tag
-                return new ScalarMapper(
-                    scalar.Tag,
-                    _ => throw new NotImplementedException(),
-                    (_, __) => throw new NotImplementedException()
-                );
             }
 
             public Node Visit(SequenceStart sequenceStart)
             {
-                var tag = sequenceStart.Tag;
-                if (tag.IsNonSpecific)
+                using (currentPath.Push(sequenceStart))
                 {
-                    var path = currentPath.GetCurrentPath();
-                    if (schema.ResolveNonSpecificTag(sequenceStart, path, out var resolvedTag))
+                    var mapper = ResolveNode(sequenceStart, schema.ResolveNonSpecificTag);
+
+                    var items = new List<Node>();
+                    while (parser.TryConsume<NodeEvent>(out var nodeEvent))
                     {
-                        tag = resolvedTag;
+                        var child = nodeEvent.Accept(this);
+                        items.Add(child);
                     }
+                    parser.Consume<SequenceEnd>();
+                    return new Sequence(mapper, items.AsReadonlyList());
                 }
-
-                currentPath.Push(sequenceStart);
-
-                var items = new List<Node>();
-                while (parser.TryConsume<NodeEvent>(out var nodeEvent))
-                {
-                    var child = nodeEvent.Accept(this);
-                    items.Add(child);
-                }
-                parser.Consume<SequenceEnd>();
-
-                currentPath.Pop();
-
-                return new Sequence(tag, items.AsReadonly());
             }
 
             public Node Visit(MappingStart mappingStart)
             {
-                var tag = mappingStart.Tag;
-                if (tag.IsNonSpecific)
+                using (currentPath.Push(mappingStart))
                 {
-                    var path = currentPath.GetCurrentPath();
-                    if (schema.ResolveNonSpecificTag(mappingStart, path, out var resolvedTag))
+                    var mapper = ResolveNode(mappingStart, schema.ResolveNonSpecificTag);
+                    var items = new Dictionary<Node, Node>();
+                    while (parser.TryConsume<NodeEvent>(out var keyNodeEvent))
                     {
-                        tag = resolvedTag;
+                        var key = keyNodeEvent.Accept(this);
+
+                        var valueNodeEvent = parser.Consume<NodeEvent>();
+                        using (currentPath.Push(keyNodeEvent))
+                        {
+                            var value = valueNodeEvent.Accept(this);
+                            items.Add(key, value);
+                        }
                     }
+                    parser.Consume<MappingEnd>();
+                    return new Mapping(mapper, items.AsReadonlyDictionary());
                 }
-
-                currentPath.Push(mappingStart);
-
-                var items = new Dictionary<Node, Node>();
-                while (parser.TryConsume<NodeEvent>(out var keyNodeEvent))
-                {
-                    var key = keyNodeEvent.Accept(this);
-
-                    var valueNodeEvent = parser.Consume<NodeEvent>();
-                    var value = valueNodeEvent.Accept(this);
-
-                    items.Add(key, value);
-                }
-                parser.Consume<MappingEnd>();
-
-                currentPath.Pop();
-
-                return new Mapping(tag, items.AsReadonly());
             }
 
             public Node Visit(Comment comment) => throw UnexpectedEvent(comment);
@@ -170,13 +153,56 @@ namespace YamlDotNet.Representation
             public Node Visit(DocumentEnd documentEnd) => throw UnexpectedEvent(documentEnd);
             public Node Visit(StreamStart streamStart) => throw UnexpectedEvent(streamStart);
             public Node Visit(StreamEnd streamEnd) => throw UnexpectedEvent(streamEnd);
+
+            private delegate bool ResolveNonSpecificTagDelegate<TNode>(TNode node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag);
+
+            private INodeMapper ResolveNode<TNode>(TNode node, ResolveNonSpecificTagDelegate<TNode> resolveNonSpecificTag)
+                where TNode : NodeEvent
+            {
+                var path = currentPath.GetCurrentPath();
+                if (node.Tag.IsNonSpecific)
+                {
+                    if (resolveNonSpecificTag(node, path, out var resolvedTag))
+                    {
+                        return resolvedTag;
+                    }
+                }
+                else if (schema.ResolveMapper(node.Tag, out var resolvedTag))
+                {
+                    return resolvedTag;
+                }
+
+                return new UnknownTagMapper(node.Tag, ((INodePathSegment)node).Kind);
+            }
+
+            private sealed class UnknownTagMapper : INodeMapper
+            {
+                public TagName Tag { get; }
+                public NodeKind MappedNodeKind { get; }
+
+                public UnknownTagMapper(TagName tag, NodeKind mappedNodeKind)
+                {
+                    Tag = tag;
+                    MappedNodeKind = mappedNodeKind;
+                }
+
+                public object? Construct(Node node)
+                {
+                    throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
+                }
+
+                public Node Represent(object? native, ISchema schema, NodePath currentPath)
+                {
+                    throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
+                }
+            }
         }
 
         private sealed class AnchorAssigner : INodeVisitor<Empty>
         {
             private readonly Func<Node, AnchorName> assignAnchor;
-            private readonly HashSet<Node> encounteredNodes = new HashSet<Node>(ReferenceEqualityComparer<Node>.Instance);
-            private readonly Dictionary<Node, AnchorName> assignedAnchors = new Dictionary<Node, AnchorName>(ReferenceEqualityComparer<Node>.Instance);
+            private readonly HashSet<Node> encounteredNodes = new HashSet<Node>(ReferenceEqualityComparer<Node>.Default);
+            private readonly Dictionary<Node, AnchorName> assignedAnchors = new Dictionary<Node, AnchorName>(ReferenceEqualityComparer<Node>.Default);
 
             public AnchorAssigner(Func<Node, AnchorName> assignAnchor)
             {
@@ -208,7 +234,7 @@ namespace YamlDotNet.Representation
             private readonly IEmitter emitter;
             private readonly ISchema schema;
             private readonly Dictionary<Node, AnchorName> anchors;
-            private readonly HashSet<Node> emittedAnchoredNodes = new HashSet<Node>(ReferenceEqualityComparer<Node>.Instance);
+            private readonly HashSet<Node> emittedAnchoredNodes = new HashSet<Node>(ReferenceEqualityComparer<Node>.Default);
 
             public NodeDumper(IEmitter emitter, ISchema schema, Dictionary<Node, AnchorName> anchors)
             {
@@ -221,10 +247,13 @@ namespace YamlDotNet.Representation
             {
                 if (!TryEmitAlias(scalar, out var anchor))
                 {
-                    var path = currentPath.GetCurrentPath();
-                    var tag = schema.IsTagImplicit(scalar, path, out var style) ? TagName.Empty : scalar.Tag;
+                    using (currentPath.Push(scalar))
+                    {
+                        var path = currentPath.GetCurrentPath();
+                        var tag = schema.IsTagImplicit(scalar, path, out var style) ? TagName.Empty : scalar.Tag;
 
-                    emitter.Emit(new Events.Scalar(anchor, tag, scalar.Value, style));
+                        emitter.Emit(new Events.Scalar(anchor, tag, scalar.Value, style));
+                    }
                 }
                 return default;
             }
@@ -233,17 +262,20 @@ namespace YamlDotNet.Representation
             {
                 if (!TryEmitAlias(sequence, out var anchor))
                 {
-                    var path = currentPath.GetCurrentPath();
-                    var tag = schema.IsTagImplicit(sequence, path, out var style) ? TagName.Empty : sequence.Tag;
-
-                    var sequenceStart = new SequenceStart(anchor, tag, style);
-                    emitter.Emit(sequenceStart);
-                    currentPath.Push(sequenceStart);
-                    foreach (var item in sequence)
+                    using (currentPath.Push(sequence))
                     {
-                        item.Accept(this);
+                        var path = currentPath.GetCurrentPath();
+                        var tag = schema.IsTagImplicit(sequence, path, out var style) ? TagName.Empty : sequence.Tag;
+
+                        var sequenceStart = new SequenceStart(anchor, tag, style);
+                        emitter.Emit(sequenceStart);
+
+                        foreach (var item in sequence)
+                        {
+                            item.Accept(this);
+                        }
                     }
-                    currentPath.Pop();
+
                     emitter.Emit(new SequenceEnd());
                 }
                 return default;
@@ -253,18 +285,24 @@ namespace YamlDotNet.Representation
             {
                 if (!TryEmitAlias(mapping, out var anchor))
                 {
-                    var path = currentPath.GetCurrentPath();
-                    var tag = schema.IsTagImplicit(mapping, path, out var style) ? TagName.Empty : mapping.Tag;
-
-                    var mappingStart = new MappingStart(anchor, tag, style);
-                    emitter.Emit(mappingStart);
-                    currentPath.Push(mappingStart);
-                    foreach (var pair in mapping)
+                    using (currentPath.Push(mapping))
                     {
-                        pair.Key.Accept(this);
-                        pair.Value.Accept(this);
+                        var path = currentPath.GetCurrentPath();
+                        var tag = schema.IsTagImplicit(mapping, path, out var style) ? TagName.Empty : mapping.Tag;
+
+                        var mappingStart = new MappingStart(anchor, tag, style);
+                        emitter.Emit(mappingStart);
+
+                        foreach (var (key, value) in mapping)
+                        {
+                            key.Accept(this);
+                            using (currentPath.Push(key))
+                            {
+                                value.Accept(this);
+                            }
+                        }
                     }
-                    currentPath.Pop();
+
                     emitter.Emit(new MappingEnd());
                 }
                 return default;

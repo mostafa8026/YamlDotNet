@@ -22,8 +22,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
+using YamlDotNet.Representation.Schemas;
 using YamlDotNet.Serialization.Converters;
 using YamlDotNet.Serialization.NamingConventions;
 using YamlDotNet.Serialization.NodeDeserializers;
@@ -134,31 +136,36 @@ namespace YamlDotNet.Serialization
                 throw new ArgumentNullException(nameof(type));
             }
 
-            var hasStreamStart = parser.TryConsume<StreamStart>(out var _);
+            var documents = Representation.Stream.Load(parser, _ => FailsafeSchema.Lenient);
+            var document = documents.First();
 
-            var hasDocumentStart = parser.TryConsume<DocumentStart>(out var _);
+            return document.Content.Mapper.Construct(document.Content);
 
-            object? result = null;
-            if (!parser.Accept<DocumentEnd>(out var _) && !parser.Accept<StreamEnd>(out var _))
-            {
-                using (var state = new SerializerState())
-                {
-                    result = valueDeserializer.DeserializeValue(parser, type, state, valueDeserializer);
-                    state.OnDeserialization();
-                }
-            }
+            //var hasStreamStart = parser.TryConsume<StreamStart>(out var _);
 
-            if (hasDocumentStart)
-            {
-                parser.Consume<DocumentEnd>();
-            }
+            //var hasDocumentStart = parser.TryConsume<DocumentStart>(out var _);
 
-            if (hasStreamStart)
-            {
-                parser.Consume<StreamEnd>();
-            }
+            //object? result = null;
+            //if (!parser.Accept<DocumentEnd>(out var _) && !parser.Accept<StreamEnd>(out var _))
+            //{
+            //    using (var state = new SerializerState())
+            //    {
+            //        result = valueDeserializer.DeserializeValue(parser, type, state, valueDeserializer);
+            //        state.OnDeserialization();
+            //    }
+            //}
 
-            return result;
+            //if (hasDocumentStart)
+            //{
+            //    parser.Consume<DocumentEnd>();
+            //}
+
+            //if (hasStreamStart)
+            //{
+            //    parser.Consume<StreamEnd>();
+            //}
+
+            //return result;
         }
     }
 }

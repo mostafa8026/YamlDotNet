@@ -73,7 +73,6 @@ namespace YamlDotNet.Serialization
                 { typeof(YamlConvertibleNodeDeserializer), _ => new YamlConvertibleNodeDeserializer(objectFactory) },
                 { typeof(YamlSerializableNodeDeserializer), _ => new YamlSerializableNodeDeserializer(objectFactory) },
                 { typeof(TypeConverterNodeDeserializer), _ => new TypeConverterNodeDeserializer(BuildTypeConverters()) },
-                { typeof(NullNodeDeserializer), _ => new NullNodeDeserializer() },
                 { typeof(ScalarNodeDeserializer), _ => new ScalarNodeDeserializer() },
                 { typeof(ArrayNodeDeserializer), _ => new ArrayNodeDeserializer() },
                 { typeof(DictionaryNodeDeserializer), _ => new DictionaryNodeDeserializer(objectFactory) },
@@ -88,7 +87,6 @@ namespace YamlDotNet.Serialization
                 { typeof(YamlSerializableTypeResolver), _ => new YamlSerializableTypeResolver() },
                 { typeof(TagNodeTypeResolver), _ => new TagNodeTypeResolver(tagMappings) },
                 { typeof(PreventUnknownTagsNodeTypeResolver), _ => new PreventUnknownTagsNodeTypeResolver() },
-                { typeof(DefaultContainersNodeTypeResolver), _ => new DefaultContainersNodeTypeResolver() }
             };
         }
 
@@ -341,11 +339,9 @@ namespace YamlDotNet.Serialization
         /// </summary>
         public IValueDeserializer BuildValueDeserializer()
         {
-            return new AliasValueDeserializer(
-                new NodeValueDeserializer(
-                    nodeDeserializerFactories.BuildComponentList(),
-                    nodeTypeResolverFactories.BuildComponentList()
-                )
+            return new NodeValueDeserializer(
+                nodeDeserializerFactories.BuildComponentList(),
+                nodeTypeResolverFactories.BuildComponentList()
             );
         }
     }

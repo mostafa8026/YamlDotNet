@@ -1,4 +1,25 @@
-﻿using System;
+﻿//  This file is part of YamlDotNet - A .NET library for YAML.
+//  Copyright (c) Antoine Aubry and contributors
+
+//  Permission is hereby granted, free of charge, to any person obtaining a copy of
+//  this software and associated documentation files (the "Software"), to deal in
+//  the Software without restriction, including without limitation the rights to
+//  use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+//  of the Software, and to permit persons to whom the Software is furnished to do
+//  so, subject to the following conditions:
+
+//  The above copyright notice and this permission notice shall be included in all
+//  copies or substantial portions of the Software.
+
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//  SOFTWARE.
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -13,14 +34,14 @@ namespace YamlDotNet.Representation.Schemas
     public abstract class RegexBasedSchema : ISchema
     {
         private readonly IDictionary<TagName, IRegexBasedScalarMapper> tags;
-        private readonly IScalarMapper? fallback;
+        private readonly INodeMapper? fallback;
         private readonly ScalarStyle nonPlainScalarStyle;
         private readonly SequenceStyle sequenceStyle;
         private readonly MappingStyle mappingStyle;
 
         protected RegexBasedSchema(
             RegexTagMappingTable tagMappingTable,
-            IScalarMapper? fallback,
+            INodeMapper? fallback,
             ScalarStyle nonPlainScalarStyle = ScalarStyle.SingleQuoted,
             SequenceStyle sequenceStyle = SequenceStyle.Any,
             MappingStyle mappingStyle = MappingStyle.Any
@@ -47,11 +68,11 @@ namespace YamlDotNet.Representation.Schemas
             this.mappingStyle = mappingStyle;
         }
 
-        public bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out IScalarMapper? resolvedTag)
+        public bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
         {
             if (!node.Tag.IsEmpty)
             {
-                resolvedTag = StringTag.Instance;
+                resolvedTag = StringMapper.Default;
                 return true;
             }
 
@@ -68,19 +89,19 @@ namespace YamlDotNet.Representation.Schemas
             return fallback != null;
         }
 
-        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out TagName resolvedTag)
+        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
         {
-            resolvedTag = YamlTagRepository.Mapping;
+            resolvedTag = MappingMapper.Instance;
             return true;
         }
 
-        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<CollectionEvent> path, [NotNullWhen(true)] out TagName resolvedTag)
+        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
         {
-            resolvedTag = YamlTagRepository.Sequence;
+            resolvedTag = SequenceMapper<object>.Default;
             return true;
         }
 
-        public bool ResolveScalarMapper(TagName tag, [NotNullWhen(true)] out IScalarMapper? resolvedTag)
+        public bool ResolveMapper(TagName tag, [NotNullWhen(true)] out INodeMapper? resolvedTag)
         {
             if (tags.TryGetValue(tag, out var result))
             {
@@ -97,7 +118,7 @@ namespace YamlDotNet.Representation.Schemas
             return false;
         }
 
-        public bool IsTagImplicit(Scalar node, IEnumerable<CollectionEvent> path, out ScalarStyle style)
+        public bool IsTagImplicit(Scalar node, IEnumerable<INodePathSegment> path, out ScalarStyle style)
         {
             if (tags.TryGetValue(node.Tag, out var tag) && tag.Matches(node.Value, out _))
             {
@@ -116,21 +137,26 @@ namespace YamlDotNet.Representation.Schemas
             return false;
         }
 
-        public bool IsTagImplicit(Mapping node, IEnumerable<CollectionEvent> path, out MappingStyle style)
+        public bool IsTagImplicit(Mapping node, IEnumerable<INodePathSegment> path, out MappingStyle style)
         {
             style = mappingStyle;
             return node.Tag.Equals(YamlTagRepository.Mapping);
         }
 
-        public bool IsTagImplicit(Sequence node, IEnumerable<CollectionEvent> path, out SequenceStyle style)
+        public bool IsTagImplicit(Sequence node, IEnumerable<INodePathSegment> path, out SequenceStyle style)
         {
             style = sequenceStyle;
             return node.Tag.Equals(YamlTagRepository.Sequence);
         }
 
-        protected interface IRegexBasedScalarMapper : IScalarMapper
+        public INodeMapper ResolveMapper(object? native, IEnumerable<INodePathSegment> path)
         {
-            bool Matches(string value, [NotNullWhen(true)] out IScalarMapper? resultingTag);
+            throw new NotImplementedException();
+        }
+
+        protected interface IRegexBasedScalarMapper : INodeMapper
+        {
+            bool Matches(string value, [NotNullWhen(true)] out INodeMapper? resultingTag);
         }
 
         private sealed class CompositeRegexBasedTag : IRegexBasedScalarMapper
@@ -138,6 +164,7 @@ namespace YamlDotNet.Representation.Schemas
             private readonly IRegexBasedScalarMapper[] subTags;
 
             public TagName Tag { get; }
+            public NodeKind MappedNodeKind => NodeKind.Scalar;
 
             public CompositeRegexBasedTag(TagName tag, IEnumerable<IRegexBasedScalarMapper> subTags)
             {
@@ -145,9 +172,10 @@ namespace YamlDotNet.Representation.Schemas
                 this.subTags = subTags.ToArray();
             }
 
-            public object? Construct(Scalar node)
+            public object? Construct(Node node)
             {
-                var value = node.Value;
+                var scalar = node.Expect<Scalar>();
+                var value = scalar.Value;
                 foreach (var subTag in subTags)
                 {
                     if (subTag.Matches(value, out var resultingTag))
@@ -159,13 +187,13 @@ namespace YamlDotNet.Representation.Schemas
                 throw new SemanticErrorException($"The value '{value}' could not be parsed as '{Tag}'.");
             }
 
-            public Scalar Represent(object? native)
+            public Node Represent(object? native, ISchema schema, NodePath currentPath)
             {
                 // TODO: Review this
-                return subTags.First().Represent(native);
+                return subTags.First().Represent(native, schema, currentPath);
             }
 
-            public bool Matches(string value, [NotNullWhen(true)] out IScalarMapper? resultingTag)
+            public bool Matches(string value, [NotNullWhen(true)] out INodeMapper? resultingTag)
             {
                 foreach (var subTag in subTags)
                 {
@@ -180,25 +208,38 @@ namespace YamlDotNet.Representation.Schemas
             }
         }
 
-        private sealed class RegexBasedScalarMapper : ScalarMapper, IRegexBasedScalarMapper
+        private sealed class RegexBasedScalarMapper : IRegexBasedScalarMapper
         {
             private readonly Regex pattern;
+            private readonly Func<Scalar, object?> constructor;
+            private readonly Func<object?, string> representer;
+
+            public TagName Tag { get; }
+            public NodeKind MappedNodeKind => NodeKind.Scalar;
 
             public RegexBasedScalarMapper(TagName tag, Regex pattern, Func<Scalar, object?> constructor, Func<object?, string> representer)
-                : base(tag, constructor, (t, v) => new Scalar(t, representer(v)))
             {
-                if (representer is null)
-                {
-                    throw new ArgumentNullException(nameof(representer));
-                }
-
+                Tag = tag;
                 this.pattern = pattern ?? throw new ArgumentNullException(nameof(pattern));
+                this.constructor = constructor ?? throw new ArgumentNullException(nameof(constructor));
+                this.representer = representer ?? throw new ArgumentNullException(nameof(representer));
             }
 
-            public bool Matches(string value, [NotNullWhen(true)] out IScalarMapper? resultingTag)
+            public bool Matches(string value, [NotNullWhen(true)] out INodeMapper? resultingTag)
             {
                 resultingTag = this;
                 return pattern.IsMatch(value);
+            }
+
+            public object? Construct(Node node)
+            {
+                return this.constructor(node.Expect<Scalar>());
+            }
+
+            public Node Represent(object? native, ISchema schema, NodePath currentPath)
+            {
+                var value = representer(native);
+                return new Scalar(this, value);
             }
         }
 

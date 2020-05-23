@@ -21,45 +21,63 @@
 
 using System;
 using System.Collections.Generic;
-using YamlDotNet.Core.Events;
 
 namespace YamlDotNet.Core
 {
-    internal sealed class NodePath
+    public sealed class NodePath
     {
         const int initialCapacity = 50;
-        private CollectionEvent[] currentPath = new CollectionEvent[initialCapacity];
+        private INodePathSegment[] currentPath = new INodePathSegment[initialCapacity];
         private int count = 0;
         private int version = 0;
 
-        public void Push(CollectionEvent @event)
+        public IDisposable Push(INodePathSegment segment)
         {
             if (count == currentPath.Length)
             {
                 Array.Resize(ref currentPath, currentPath.Length * 2);
             }
 
-            currentPath[count] = @event;
+            currentPath[count] = segment;
             ++count;
+
+            return new PopPath(this, count);
         }
 
-        public void Pop()
+        private sealed class PopPath : IDisposable
         {
-            if (count == 0)
+            private readonly NodePath owner;
+            private readonly int expectedCount;
+
+            public PopPath(NodePath owner, int expectedCount)
             {
-                throw new InvalidOperationException($"Cannot pop elements from an empty NodePath");
+                this.owner = owner;
+                this.expectedCount = expectedCount;
+            }
+
+            public void Dispose()
+            {
+                owner.Pop(expectedCount);
+            }
+        }
+
+        private void Pop(int expectedCount)
+        {
+            if (count != expectedCount)
+            {
+                throw new InvalidOperationException($"Unbalanced call to Pop() was detected.");
             }
 
             --count;
             ++version; // Pop() invalidates previously returned enumerators
         }
 
-        public IEnumerable<CollectionEvent> GetCurrentPath()
+        public IEnumerable<INodePathSegment> GetCurrentPath()
         {
             return Snapshot(count, version);
         }
 
-        private IEnumerable<CollectionEvent> Snapshot(int length, int expectedVersion)
+        private IEnumerable<INodePathSegment> Snapshot(int length, int expectedVersion)
         {
             for (var i = 0; i < length; ++i)
             {

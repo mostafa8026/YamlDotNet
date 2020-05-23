@@ -21,7 +21,7 @@
 
 using System;
 
-namespace YamlDotNet.Helpers
+namespace YamlDotNet.Representation.Schemas
 {
     /// <summary>
     /// Implementation of integer parsing for various bases.
@@ -82,7 +82,7 @@ namespace YamlDotNet.Helpers
                         var chr = value[idx];
                         if (chr != '_')
                         {
-                            parsed = checked((parsed * 2) + (chr & 1));
+                            parsed = checked(parsed * 2 + (chr & 1));
                         }
                     }
                 }
@@ -93,7 +93,7 @@ namespace YamlDotNet.Helpers
                         var chr = value[idx];
                         if (chr != '_')
                         {
-                            parsed = checked((parsed * 2) - (chr & 1));
+                            parsed = checked(parsed * 2 - (chr & 1));
                         }
                     }
                 }
@@ -138,7 +138,7 @@ namespace YamlDotNet.Helpers
                         var chr = value[idx];
                         if (chr != '_')
                         {
-                            parsed = checked((parsed * 8) + (chr & 0b111));
+                            parsed = checked(parsed * 8 + (chr & 0b111));
                         }
                     }
                 }
@@ -149,7 +149,7 @@ namespace YamlDotNet.Helpers
                         var chr = value[idx];
                         if (chr != '_')
                         {
-                            parsed = checked((parsed * 8) - (chr & 0b111));
+                            parsed = checked(parsed * 8 - (chr & 0b111));
                         }
                     }
                 }
@@ -170,7 +170,7 @@ namespace YamlDotNet.Helpers
             {
                 for (var idx = 2; idx < value.Length; ++idx)
                 {
-                    parsed = checked((parsed * 8UL) + (ulong)(value[idx] & 0b111));
+                    parsed = checked(parsed * 8UL + (ulong)(value[idx] & 0b111));
                 }
             }
             catch (OverflowException)
@@ -213,7 +213,7 @@ namespace YamlDotNet.Helpers
                         var chr = value[idx];
                         if (chr != '_')
                         {
-                            parsed = checked((parsed * 10) + (chr & 0x0f));
+                            parsed = checked(parsed * 10 + (chr & 0x0f));
                         }
                     }
                 }
@@ -224,7 +224,7 @@ namespace YamlDotNet.Helpers
                         var chr = value[idx];
                         if (chr != '_')
                         {
-                            parsed = checked((parsed * 10) - (chr & 0x0f));
+                            parsed = checked(parsed * 10 - (chr & 0x0f));
                         }
                     }
                 }
@@ -269,7 +269,7 @@ namespace YamlDotNet.Helpers
                         var chr = value[idx];
                         if (chr != '_')
                         {
-                            parsed = checked((parsed * 16) + (chr & 0x0f));
+                            parsed = checked(parsed * 16 + (chr & 0x0f));
                             if (chr > '9')
                             {
                                 parsed = checked(parsed + 9);
@@ -284,7 +284,7 @@ namespace YamlDotNet.Helpers
                         var chr = value[idx];
                         if (chr != '_')
                         {
-                            parsed = checked((parsed * 16) - (chr & 0x0f));
+                            parsed = checked(parsed * 16 - (chr & 0x0f));
                             if (chr > '9')
                             {
                                 parsed = checked(parsed - 9);
@@ -312,7 +312,7 @@ namespace YamlDotNet.Helpers
                     var chr = value[idx];
                     if (chr != '_')
                     {
-                        parsed = checked((parsed * 16UL) + (ulong)(chr & 0x0f));
+                        parsed = checked(parsed * 16UL + (ulong)(chr & 0x0f));
                         if (chr > '9')
                         {
                             parsed = checked(parsed + 9UL);

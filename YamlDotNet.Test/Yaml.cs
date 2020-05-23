@@ -103,7 +103,7 @@ namespace YamlDotNet.Test
                 }
 
                 lines = lines
-                    .Select(l => l.Substring(indent.Groups[1].Length))
+                    .Select(l => l.Substring(Math.Min(indent.Groups[1].Length, l.Length)))
                     .ToList();
             }
 

@@ -22,7 +22,7 @@
 using System;
 using System.Globalization;
 
-namespace YamlDotNet.Helpers
+namespace YamlDotNet.Representation.Schemas
 {
     internal static class FloatingPointParser
     {

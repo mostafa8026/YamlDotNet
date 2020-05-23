@@ -19,6 +19,8 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
+using System;
+
 namespace YamlDotNet.Core.Events
 {
     /// <summary>
@@ -94,5 +96,7 @@ namespace YamlDotNet.Core.Events
         {
             return visitor.Visit(this);
         }
+
+        protected override NodeKind Kind => NodeKind.Sequence;
     }
 }

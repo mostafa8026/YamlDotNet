@@ -205,6 +205,13 @@ namespace YamlDotNet
                 .Where(m => m.IsPublic && m.IsStatic);
         }
 
+        public static MethodInfo GetPrivateStaticMethod(this Type type, string name)
+        {
+            return type.GetRuntimeMethods()
+                .FirstOrDefault(m => !m.IsPublic && m.IsStatic && m.Name.Equals(name))
+                ?? throw new MissingMethodException($"Expected to find a method named '{name}' in '{type.FullName}'.");
+        }
+
         public static MethodInfo? GetPublicStaticMethod(this Type type, string name, params Type[] parameterTypes)
         {
             return type.GetRuntimeMethods()
@@ -360,6 +367,12 @@ namespace YamlDotNet
         public static IEnumerable<MethodInfo> GetPublicStaticMethods(this Type type)
         {
             return type.GetMethods(BindingFlags.Static | BindingFlags.Public);
+        }
+
+        public static MethodInfo GetPrivateStaticMethod(this Type type, string name)
+        {
+            return type.GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic)
+                ?? throw new MissingMethodException($"Expected to find a method named '{name}' in '{type.FullName}'.");
         }
 
         public static MethodInfo? GetPublicStaticMethod(this Type type, string name, params Type[] parameterTypes)
@@ -965,7 +978,7 @@ namespace YamlDotNet.Helpers
             IEnumerator IEnumerable.GetEnumerator() => list.GetEnumerator();
         }
 
-        public static IReadOnlyList<T> AsReadonly<T>(this List<T> list)
+        public static IReadOnlyList<T> AsReadonlyList<T>(this List<T> list)
         {
             return new ReadOnlyListAdapter<T>(list);
         }
@@ -996,7 +1009,7 @@ namespace YamlDotNet.Helpers
             IEnumerator IEnumerable.GetEnumerator() => dictionary.GetEnumerator();
         }
 
-        public static IReadOnlyDictionary<TKey, TValue> AsReadonly<TKey, TValue>(this Dictionary<TKey, TValue> dictionary) where TKey : notnull
+        public static IReadOnlyDictionary<TKey, TValue> AsReadonlyDictionary<TKey, TValue>(this Dictionary<TKey, TValue> dictionary) where TKey : notnull
         {
             return new ReadOnlyDictionaryAdapter<TKey, TValue>(dictionary);
         }
@@ -1007,14 +1020,28 @@ namespace YamlDotNet.Helpers
 {
     public static class ReadOnlyCollectionExtensions
     {
-        public static IReadOnlyList<T> AsReadonly<T>(this List<T> list)
+        public static IReadOnlyList<T> AsReadonlyList<T>(this List<T> list)
         {
             return list;
         }
 
-        public static IReadOnlyDictionary<TKey, TValue> AsReadonly<TKey, TValue>(this Dictionary<TKey, TValue> dictionary) where TKey : notnull
+        public static IReadOnlyDictionary<TKey, TValue> AsReadonlyDictionary<TKey, TValue>(this Dictionary<TKey, TValue> dictionary) where TKey : notnull
         {
             return dictionary;
+        }
+    }
+}
+#endif
+
+#if NET20 || NET35 || NET45 || UNITY || NETSTANDARD1_3
+namespace System.Collections.Generic
+{
+    internal static class DeconstructionExtensions
+    {
+        public static void Deconstruct<TKey, TValue>(this KeyValuePair<TKey, TValue> pair, out TKey key, out TValue value)
+        {
+            key = pair.Key;
+            value = pair.Value;
         }
     }
 }

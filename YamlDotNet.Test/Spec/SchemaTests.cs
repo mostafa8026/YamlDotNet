@@ -144,7 +144,7 @@ namespace YamlDotNet.Test.Spec
 
             var document = Stream.Load(new Parser(reader), _ => schema).Single();
 
-            var actual = (Representation.Scalar)document.Content;
+            var actual = (YamlDotNet.Representation.Scalar)document.Content;
 
             // Check expected tag
             var expectedTag = YamlTagRepository.Prefix + type switch
@@ -189,7 +189,7 @@ namespace YamlDotNet.Test.Spec
             Assert.Equal(expectedLoadedValue, actualLoadedValue);
 
             // Check dumped value
-            var dumpedScalar = actual.Mapper.Represent(actualLoadedValue);
+            var dumpedScalar = actual.Mapper.Represent(actualLoadedValue, schema, new NodePath());
 
             var buffer = new StringWriter();
             Stream.Dump(new Emitter(buffer), new[] { new Document(dumpedScalar, schema) }, explicitSeparators: true);
