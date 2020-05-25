@@ -27,38 +27,29 @@ using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Helpers;
 using YamlDotNet.Serialization.Utilities;
+using NodeMatcherInstanceOrFactory = YamlDotNet.Helpers.Either<
+    YamlDotNet.Representation.Schemas.INodeMatcher<YamlDotNet.Representation.INodeMapper>,
+    System.Func<System.Type, YamlDotNet.Representation.Schemas.INodeMatcher<YamlDotNet.Representation.INodeMapper>>>;
 
 namespace YamlDotNet.Representation.Schemas
 {
     public sealed class TypeSchema : ISchema
     {
         private readonly ISchema baseSchema;
-        private readonly Dictionary<Type, Either<INodeMapper, Func<Type, INodeMapper>>> tagMappings;
-        private readonly IDictionary<Type, NodeMatcher<X>> nodeMatchers;
-        private readonly INodeMatcher<X> rootMatcher;
-
-        class X
-        {
-            public INodeMapper Mapper { get; }
-
-            public X(INodeMapper mapper)
-            {
-                Mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
-            }
-
-            public override string ToString() => Mapper.ToString()!;
-        }
+        private readonly Dictionary<Type, NodeMatcherInstanceOrFactory> tagMappings;
+        private readonly IDictionary<Type, INodeMatcher<INodeMapper>> nodeMatchers;
+        private readonly INodeMatcher<INodeMapper> rootMatcher;
 
         public TypeSchema(Type root, ISchema baseSchema)
-            : this(root, baseSchema, Enumerable.Empty<KeyValuePair<Type, Either<INodeMapper, Func<Type, INodeMapper>>>>())
+            : this(root, baseSchema, Enumerable.Empty<KeyValuePair<Type, NodeMatcherInstanceOrFactory>>())
         {
         }
 
-        public TypeSchema(Type root, ISchema baseSchema, IEnumerable<KeyValuePair<Type, Either<INodeMapper, Func<Type, INodeMapper>>>> tagMappings)
+        public TypeSchema(Type root, ISchema baseSchema, IEnumerable<KeyValuePair<Type, NodeMatcherInstanceOrFactory>> tagMappings)
         {
             this.baseSchema = baseSchema ?? throw new ArgumentNullException(nameof(baseSchema));
 
-            this.tagMappings = new Dictionary<Type, Either<INodeMapper, Func<Type, INodeMapper>>>();
+            this.tagMappings = new Dictionary<Type, NodeMatcherInstanceOrFactory>();
             foreach (var (type, mapper) in tagMappings)
             {
                 if (mapper.IsEmpty)
@@ -69,46 +60,48 @@ namespace YamlDotNet.Representation.Schemas
                 this.tagMappings.Add(type, mapper);
             }
 
-            nodeMatchers = new Dictionary<Type, NodeMatcher<X>>();
+            nodeMatchers = new Dictionary<Type, INodeMatcher<INodeMapper>>();
 
             rootMatcher = BuildNodeMatcherTree(root, nodeMatchers);
         }
 
-        private NodeMatcher<X> BuildNodeMatcherTree(Type type, IDictionary<Type, NodeMatcher<X>> nodeMatcherCache)
+        public INodeMapper RootMapper => rootMatcher.Value;
+
+        private INodeMatcher<INodeMapper> BuildNodeMatcherTree(Type type, IDictionary<Type, INodeMatcher<INodeMapper>> nodeMatcherCache)
         {
             if (!nodeMatcherCache.TryGetValue(type, out var nodeMatcher))
             {
                 foreach (var candidate in GetSuperTypes(type))
                 {
-                    var mapperFound = tagMappings.TryGetValue(candidate, out var mapperOrFactory);
+                    var mapperFound = tagMappings.TryGetValue(candidate, out var matcherInstanceOrFactory);
                     if (!mapperFound && candidate.IsGenericType())
                     {
-                        mapperFound = tagMappings.TryGetValue(candidate.GetGenericTypeDefinition(), out mapperOrFactory);
+                        mapperFound = tagMappings.TryGetValue(candidate.GetGenericTypeDefinition(), out matcherInstanceOrFactory);
                     }
 
                     if (mapperFound)
                     {
-                        if (!mapperOrFactory.GetValue(out var mapper, out var mapperFactory))
+                        if (!matcherInstanceOrFactory.GetValue(out nodeMatcher, out var matcherFactory))
                         {
-                            mapper = mapperFactory(candidate);
+                            nodeMatcher = matcherFactory(candidate);
                         }
 
-                        nodeMatcher = new NodeKindMatcher<X>(mapper.MappedNodeKind, new X(mapper));
                         nodeMatcherCache.Add(type, nodeMatcher);
                         return nodeMatcher;
                     }
                 }
 
                 // If we reach this point, then none of the configured tag mappings was able to handle this type.
-                nodeMatcher = new NodeKindMatcher<X>(NodeKind.Mapping, new X(new ObjectMapper(type)));
-                nodeMatcherCache.Add(type, nodeMatcher); // It is important to update the cache immediately to handle recursion
+                var objectMatcher = new NodeKindMatcher<INodeMapper>(NodeKind.Mapping, new ObjectMapper(type));
+                nodeMatcherCache.Add(type, objectMatcher); // It is important to update the cache immediately to handle recursion
+                nodeMatcher = objectMatcher;
 
                 // TODO: Type inspector
                 foreach (var property in type.GetPublicProperties())
                 {
                     // TODO: Naming convention
                     var keyName = property.Name;
-                    nodeMatcher.Add(new ScalarValueMatcher<X>(keyName, new X(StringMapper.Default))
+                    objectMatcher.Add(new ScalarValueMatcher<INodeMapper>(keyName, StringMapper.Default)
                     {
                         BuildNodeMatcherTree(property.PropertyType, nodeMatcherCache)
                     });
@@ -196,16 +189,20 @@ namespace YamlDotNet.Representation.Schemas
                     var properties = native.GetType().GetPublicProperties();
                     foreach (var property in properties)
                     {
-                        var key = property.Name; // TODO: Naming convention
-                        var keyNode = new Scalar(StringMapper.Default, key);
-
-                        using (currentPath.Push(keyNode))
+                        var value = property.GetValue(native, null);
+                        // TODO: Proper null handling
+                        if (value != null)
                         {
-                            var value = property.GetValue(native, null);
-                            var valueMapper = schema.ResolveMapper(value, currentPath.GetCurrentPath());
-                            var valueNode = valueMapper.Represent(value, schema, currentPath);
+                            var key = property.Name; // TODO: Naming convention
+                            var keyNode = new Scalar(StringMapper.Default, key);
 
-                            children.Add(keyNode, valueNode);
+                            using (currentPath.Push(keyNode))
+                            {
+                                var valueMapper = schema.ResolveMapper(value, currentPath.GetCurrentPath());
+                                var valueNode = valueMapper.Represent(value, schema, currentPath);
+
+                                children.Add(keyNode, valueNode);
+                            }
                         }
                     }
                 }
@@ -220,10 +217,10 @@ namespace YamlDotNet.Representation.Schemas
 
         public bool IsTagImplicit(Scalar node, IEnumerable<INodePathSegment> path, out ScalarStyle style)
         {
-            if (rootMatcher.Query(path, out var x))
+            if (rootMatcher.Query(path, out var mapper))
             {
                 style = ScalarStyle.Plain;
-                return node.Tag.Equals(x.Mapper.Tag);
+                return node.Tag.Equals(mapper.Tag);
             }
 
             return this.baseSchema.IsTagImplicit(node, path, out style);
@@ -231,10 +228,10 @@ namespace YamlDotNet.Representation.Schemas
 
         public bool IsTagImplicit(Mapping node, IEnumerable<INodePathSegment> path, out MappingStyle style)
         {
-            if (rootMatcher.Query(path, out var x))
+            if (rootMatcher.Query(path, out var mapper))
             {
                 style = MappingStyle.Block;
-                return node.Tag.Equals(x.Mapper.Tag);
+                return node.Tag.Equals(mapper.Tag);
             }
 
             return this.baseSchema.IsTagImplicit(node, path, out style);
@@ -242,10 +239,10 @@ namespace YamlDotNet.Representation.Schemas
 
         public bool IsTagImplicit(Sequence node, IEnumerable<INodePathSegment> path, out SequenceStyle style)
         {
-            if (rootMatcher.Query(path, out var x))
+            if (rootMatcher.Query(path, out var mapper))
             {
                 style = SequenceStyle.Block;
-                return node.Tag.Equals(x.Mapper.Tag);
+                return node.Tag.Equals(mapper.Tag);
             }
 
             return this.baseSchema.IsTagImplicit(node, path, out style);
@@ -265,10 +262,10 @@ namespace YamlDotNet.Representation.Schemas
 
         public INodeMapper ResolveMapper(object? native, IEnumerable<INodePathSegment> path)
         {
-            if (rootMatcher.Query(path, out var x))
+            foreach (var mapper in rootMatcher.QueryChildren(path))
             {
                 // TODO: Use the native value for something ?
-                return x.Mapper;
+                return mapper;
             }
 
             return this.baseSchema.ResolveMapper(native, path);
@@ -276,10 +273,10 @@ namespace YamlDotNet.Representation.Schemas
 
         public bool ResolveNonSpecificTag(Core.Events.Scalar node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
         {
-            if (rootMatcher.Query(path, out var x))
+            if (rootMatcher.Query(path, out var mapper))
             {
                 // TODO: Check the node itself ?
-                resolvedTag = x.Mapper;
+                resolvedTag = mapper;
                 return true;
             }
 
@@ -288,10 +285,10 @@ namespace YamlDotNet.Representation.Schemas
 
         public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
         {
-            if (rootMatcher.Query(path, out var x))
+            if (rootMatcher.Query(path, out var mapper))
             {
                 // TODO: Check the node itself ?
-                resolvedTag = x.Mapper;
+                resolvedTag = mapper;
                 return true;
             }
 
@@ -300,10 +297,10 @@ namespace YamlDotNet.Representation.Schemas
 
         public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
         {
-            if (rootMatcher.Query(path, out var x))
+            if (rootMatcher.Query(path, out var mapper))
             {
                 // TODO: Check the node itself ?
-                resolvedTag = x.Mapper;
+                resolvedTag = mapper;
                 return true;
             }
 

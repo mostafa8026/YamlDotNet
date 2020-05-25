@@ -73,7 +73,7 @@ namespace YamlDotNet.Representation.Schemas
                 {
                     output.Append(' ');
                 }
-                if(visitedNodeMatchers.TryGetValue(matcher, out var id))
+                if (visitedNodeMatchers.TryGetValue(matcher, out var id))
                 {
                     output
                         .Append('*')
@@ -87,7 +87,7 @@ namespace YamlDotNet.Representation.Schemas
                         .Append('#')
                         .Append(id)
                         .Append(' ');
-                
+
                     matcher.AddStringRepresentation(output);
                     output.Append(" -> ");
                     output.Append(matcher.Value);
@@ -156,10 +156,28 @@ namespace YamlDotNet.Representation.Schemas
     {
         public static bool Query<T>(this INodeMatcher<T> matcher, IEnumerable<INodePathSegment> query, [MaybeNullWhen(false)] out T value)
         {
-            return Query(new[] { matcher }, query, out value);
+            if (Query(new[] { matcher }, query, out var result))
+            {
+                value = result.Value;
+                return true;
+            }
+
+            value = default!;
+            return false;
         }
 
-        public static bool Query<T>(IEnumerable<INodeMatcher<T>> matchers, IEnumerable<INodePathSegment> query, [MaybeNullWhen(false)] out T value)
+        public static IEnumerable<T> QueryChildren<T>(this INodeMatcher<T> matcher, IEnumerable<INodePathSegment> query)
+        {
+            if (Query(new[] { matcher }, query, out var result))
+            {
+                foreach (var child in result.Children)
+                {
+                    yield return child.Value;
+                }
+            }
+        }
+
+        private static bool Query<T>(IEnumerable<INodeMatcher<T>> matchers, IEnumerable<INodePathSegment> query, [NotNullWhen(true)] out INodeMatcher<T>? result)
         {
             // I couldn't find a cleaner way to implement this algorithm without using gotos.
 
@@ -180,17 +198,17 @@ namespace YamlDotNet.Representation.Schemas
                             goto continue_traversal; // break from the inner loop and continue the outer loop
                         }
                     }
-                    value = default!;
+                    result = null;
                     return false;
 
                 continue_traversal:;
                 } while (iterator.MoveNext());
 
-                value = current.Value;
+                result = current;
                 return true;
             }
 
-            value = default!;
+            result = null;
             return false;
         }
     }

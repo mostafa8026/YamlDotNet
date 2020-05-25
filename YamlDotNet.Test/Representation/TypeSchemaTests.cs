@@ -50,11 +50,23 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void X()
         {
-            var tagMappings = new Dictionary<Type, Either<INodeMapper, Func<Type, INodeMapper>>>
+            var tagMappings = new Dictionary<Type, Either<INodeMatcher<INodeMapper>, Func<Type, INodeMatcher<INodeMapper>>>>
             {
-                { typeof(int), GetCoreMapper(YamlTagRepository.Integer).AsEither() },
-                { typeof(string), GetCoreMapper(YamlTagRepository.String).AsEither() },
-                { typeof(List<int>), SequenceMapper<int>.Default },
+                {
+                    typeof(int),
+                    new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.Integer))
+                },
+                {
+                    typeof(string),
+                    new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.String))
+                },
+                {
+                    typeof(List<int>),
+                    new NodeKindMatcher<INodeMapper>(NodeKind.Sequence, SequenceMapper<int>.Default)
+                    {
+                        new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.Integer))
+                    }
+                },
             };
 
             var sut = new TypeSchema(typeof(SimpleModel), CoreSchema.Instance, tagMappings);
@@ -73,6 +85,14 @@ namespace YamlDotNet.Test.Representation
             var model = Assert.IsType<SimpleModel>(value);
             Assert.Equal(123, model.Value);
             Assert.Equal(456, model.RecursiveChild!.Value);
+
+            var representation = sut.RootMapper.Represent(model, sut, new NodePath());
+            Assert.Equal(content, representation);
+            //sut.ResolveMapper(model, );
+
+            var yaml = Stream.Dump(new[] { new Document(representation, sut) });
+            output.WriteLine("=== Dumped YAML ===");
+            output.WriteLine(yaml);
         }
 
         public class SimpleModel
@@ -80,7 +100,7 @@ namespace YamlDotNet.Test.Representation
             public int Value { get; set; }
 
             public List<int>? List { get; set; }
-            
+
             public SimpleModel? RecursiveChild { get; set; }
             public SimpleModelChild? Child { get; set; }
         }

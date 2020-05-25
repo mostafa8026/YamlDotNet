@@ -22,6 +22,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Helpers;
@@ -32,6 +33,12 @@ namespace YamlDotNet.Representation
 {
     public sealed class Stream
     {
+        public static IEnumerable<Document> Load(string yaml, Func<DocumentStart, ISchema> schemaSelector)
+        {
+            using var reader = new StringReader(yaml);
+            return Load(new Parser(reader), schemaSelector);
+        }
+
         public static IEnumerable<Document> Load(IParser parser, Func<DocumentStart, ISchema> schemaSelector)
         {
             static IEnumerable<Document> LoadDocuments(IParser parser, Func<DocumentStart, ISchema> schemaSelector)
@@ -50,6 +57,13 @@ namespace YamlDotNet.Representation
             }
 
             return LoadDocuments(parser, schemaSelector).SingleUse();
+        }
+
+        public static string Dump(IEnumerable<Document> stream, bool explicitSeparators = false)
+        {
+            using var buffer = new StringWriter();
+            Dump(new Emitter(buffer), stream, explicitSeparators);
+            return buffer.ToString();
         }
 
         public static void Dump(IEmitter emitter, IEnumerable<Document> stream, bool explicitSeparators = false)

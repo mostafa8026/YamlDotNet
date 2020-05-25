@@ -24,6 +24,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
+using HashCode = YamlDotNet.Core.HashCode;
 
 namespace YamlDotNet.Representation
 {
@@ -89,6 +90,43 @@ namespace YamlDotNet.Representation
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         public override T Accept<T>(INodeVisitor<T> visitor) => visitor.Visit(this);
+
+        public override bool Equals([AllowNull] Node other)
+        {
+            if (!base.Equals(other))
+            {
+                return false;
+            }
+
+            // 'other' is always a Mapping when base.Equals returns true
+            using var thisEnumerator = this.GetEnumerator();
+            using var otherEnumerator = ((Mapping)other).GetEnumerator();
+
+            bool thisHasNext, otherHasNext;
+            while ((thisHasNext = thisEnumerator.MoveNext()) & (otherHasNext = otherEnumerator.MoveNext()))
+            {
+                var areEqual = thisEnumerator.Current.Key.Equals(otherEnumerator.Current.Key)
+                    && thisEnumerator.Current.Value.Equals(otherEnumerator.Current.Value);
+
+                if (!areEqual)
+                {
+                    return false;
+                }
+            }
+
+            return !thisHasNext && !otherHasNext;
+        }
+
+        public override int GetHashCode()
+        {
+            var hashCode = base.GetHashCode();
+            foreach (var child in this)
+            {
+                hashCode = HashCode.CombineHashCodes(hashCode, child.Key, child.Value);
+            }
+
+            return hashCode;
+        }
 
         public override string ToString() => $"Mapping {Tag}";
     }

@@ -20,7 +20,9 @@
 //  SOFTWARE.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
+using HashCode = YamlDotNet.Core.HashCode;
 
 namespace YamlDotNet.Representation
 {
@@ -43,6 +45,17 @@ namespace YamlDotNet.Representation
         string INodePathSegment.Value => Value;
 
         public override T Accept<T>(INodeVisitor<T> visitor) => visitor.Visit(this);
+
+        public override bool Equals([AllowNull] Node other)
+        {
+            return base.Equals(other)
+                && this.Value.Equals(((Scalar)other).Value); // 'other' is always a Scalar when base.Equals returns true
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.CombineHashCodes(base.GetHashCode(), Value);
+        }
 
         public override string ToString() => $"Scalar {Tag} '{Value}'";
     }

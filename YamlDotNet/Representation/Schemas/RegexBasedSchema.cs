@@ -28,6 +28,7 @@ using System.Text.RegularExpressions;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using Events = YamlDotNet.Core.Events;
+using HashCode = YamlDotNet.Core.HashCode;
 
 namespace YamlDotNet.Representation.Schemas
 {
@@ -52,7 +53,7 @@ namespace YamlDotNet.Representation.Schemas
                 .Select(g => g.Count() switch
                 {
                     1 => g.First(),
-                    _ => new CompositeRegexBasedTag(g.Key, g)
+                    _ => new CompositeRegexBasedTag(g.Key, g.Cast<RegexBasedScalarMapper>())
                 })
                 .ToDictionary(e => e.Tag);
 
@@ -159,20 +160,52 @@ namespace YamlDotNet.Representation.Schemas
             bool Matches(string value, [NotNullWhen(true)] out INodeMapper? resultingTag);
         }
 
-        private sealed class CompositeRegexBasedTag : IRegexBasedScalarMapper
+        private abstract class CompositeRegexBasedTagComponent : IRegexBasedScalarMapper
         {
-            private readonly IRegexBasedScalarMapper[] subTags;
-
             public TagName Tag { get; }
             public NodeKind MappedNodeKind => NodeKind.Scalar;
 
-            public CompositeRegexBasedTag(TagName tag, IEnumerable<IRegexBasedScalarMapper> subTags)
+            protected CompositeRegexBasedTagComponent(TagName tag)
             {
                 Tag = tag;
+            }
+
+            public abstract Func<object?, string> Representer { get; }
+
+            public abstract object? Construct(Node node);
+            public abstract bool Matches(string value, [NotNullWhen(true)] out INodeMapper? resultingTag);
+
+            public Node Represent(object? native, ISchema schema, NodePath currentPath)
+            {
+                var value = Representer(native);
+                return new Scalar(this, value);
+            }
+
+            public override bool Equals(object? obj)
+            {
+                return obj is CompositeRegexBasedTagComponent other
+                    && this.Tag.Equals(other.Tag)
+                    && ReferenceEquals(this.Representer, other.Representer);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.CombineHashCodes(Tag, Representer);
+            }
+
+            public override string ToString() => Tag.ToString();
+        }
+
+        private sealed class CompositeRegexBasedTag : CompositeRegexBasedTagComponent
+        {
+            private readonly RegexBasedScalarMapper[] subTags;
+
+            public CompositeRegexBasedTag(TagName tag, IEnumerable<RegexBasedScalarMapper> subTags) : base(tag)
+            {
                 this.subTags = subTags.ToArray();
             }
 
-            public object? Construct(Node node)
+            public override object? Construct(Node node)
             {
                 var scalar = node.Expect<Scalar>();
                 var value = scalar.Value;
@@ -187,13 +220,7 @@ namespace YamlDotNet.Representation.Schemas
                 throw new SemanticErrorException($"The value '{value}' could not be parsed as '{Tag}'.");
             }
 
-            public Node Represent(object? native, ISchema schema, NodePath currentPath)
-            {
-                // TODO: Review this
-                return subTags.First().Represent(native, schema, currentPath);
-            }
-
-            public bool Matches(string value, [NotNullWhen(true)] out INodeMapper? resultingTag)
+            public override bool Matches(string value, [NotNullWhen(true)] out INodeMapper? resultingTag)
             {
                 foreach (var subTag in subTags)
                 {
@@ -206,41 +233,36 @@ namespace YamlDotNet.Representation.Schemas
                 resultingTag = null;
                 return false;
             }
+
+            public override Func<object?, string> Representer => subTags.First().Representer;
         }
 
-        private sealed class RegexBasedScalarMapper : IRegexBasedScalarMapper
+        private sealed class RegexBasedScalarMapper : CompositeRegexBasedTagComponent
         {
             private readonly Regex pattern;
             private readonly Func<Scalar, object?> constructor;
-            private readonly Func<object?, string> representer;
-
-            public TagName Tag { get; }
-            public NodeKind MappedNodeKind => NodeKind.Scalar;
+            public override Func<object?, string> Representer { get; }
 
             public RegexBasedScalarMapper(TagName tag, Regex pattern, Func<Scalar, object?> constructor, Func<object?, string> representer)
+                : base(tag)
             {
-                Tag = tag;
                 this.pattern = pattern ?? throw new ArgumentNullException(nameof(pattern));
                 this.constructor = constructor ?? throw new ArgumentNullException(nameof(constructor));
-                this.representer = representer ?? throw new ArgumentNullException(nameof(representer));
+                Representer = representer ?? throw new ArgumentNullException(nameof(representer));
             }
 
-            public bool Matches(string value, [NotNullWhen(true)] out INodeMapper? resultingTag)
+            public override bool Matches(string value, [NotNullWhen(true)] out INodeMapper? resultingTag)
             {
                 resultingTag = this;
                 return pattern.IsMatch(value);
             }
 
-            public object? Construct(Node node)
+            public override object? Construct(Node node)
             {
                 return this.constructor(node.Expect<Scalar>());
             }
 
-            public Node Represent(object? native, ISchema schema, NodePath currentPath)
-            {
-                var value = representer(native);
-                return new Scalar(this, value);
-            }
+            public override string ToString() => Tag.ToString();
         }
 
         protected sealed class RegexTagMappingTable : IEnumerable<IRegexBasedScalarMapper>

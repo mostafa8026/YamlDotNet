@@ -20,12 +20,14 @@
 //  SOFTWARE.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
 using YamlDotNet.Serialization;
+using HashCode = YamlDotNet.Core.HashCode;
 
 namespace YamlDotNet.Representation
 {
-    public abstract class Node : INodePathSegment
+    public abstract class Node : INodePathSegment, IEquatable<Node>
     {
         // Prevent extending this class from outside
         internal Node(INodeMapper mapper, Mark start, Mark end)
@@ -35,8 +37,8 @@ namespace YamlDotNet.Representation
             End = end;
         }
 
-        public TagName Tag => Mapper.Tag;
         public abstract NodeKind Kind { get; }
+        public TagName Tag => Mapper.Tag;
         public INodeMapper Mapper { get; }
         public Mark Start { get; }
         public Mark End { get; }
@@ -50,6 +52,22 @@ namespace YamlDotNet.Representation
             return this is TNode specific
                 ? specific
                 : throw new UnexpectedNodeTypeException(this, typeof(TNode));
+        }
+
+        public virtual bool Equals([AllowNull] Node other)
+        {
+            // Start and End are not compared because they are not relevant to this node's identity.
+            // The mapper already contains the tag, so there's no reason to compare it again.
+            return other != null
+                && this.Kind.Equals(other.Kind)
+                && this.Mapper.Equals(other.Mapper);
+        }
+
+        public override bool Equals(object? obj) => Equals(obj as Node);
+
+        public override int GetHashCode()
+        {
+            return HashCode.CombineHashCodes(Kind, Mapper);
         }
     }
 }
