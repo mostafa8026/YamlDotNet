@@ -167,12 +167,12 @@ namespace YamlDotNet.Test.Core
             {
                 this.text = text;
                 this.style = style;
-                this.tag = style != ScalarStyle.Plain ? TagName.NonSpecific : TagName.Empty;
+                this.tag = TagName.Empty;
             }
 
-            public ScalarBuilder T(string tag)
+            public ScalarBuilder T(TagName tag)
             {
-                this.tag = new TagName(tag);
+                this.tag = tag;
                 return this;
             }
 

@@ -361,7 +361,7 @@ namespace YamlDotNet.Test.Core
             AssertSequenceOfEventsFrom(Yaml.ParserForText(yaml),
                 StreamStart,
                 DocumentStart(Implicit),
-                LiteralScalar(expected),
+                LiteralScalar(expected).T(TagName.NonSpecific),
                 DocumentEnd(Implicit),
                 StreamEnd);
         }
