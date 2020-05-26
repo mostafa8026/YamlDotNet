@@ -200,13 +200,19 @@ namespace YamlDotNet.Test.Spec
                     textWriter.Write(" &");
                     textWriter.Write(nodeEvent.Anchor);
                 }
-                // TODO: 
-                //if (!nodeEvent.Tag.IsImplicit)
-                //{
-                //    textWriter.Write(" <");
-                //    textWriter.Write(nodeEvent.Tag.Name.Value);
-                //    textWriter.Write(">");
-                //}
+
+                var tagIsExplicit = !nodeEvent.Tag.IsNonSpecific;
+                if (!tagIsExplicit && nodeEvent is Scalar scalar && scalar.Style == ScalarStyle.Plain)
+                {
+                    tagIsExplicit = !scalar.Tag.IsEmpty;
+                }
+
+                if (tagIsExplicit)
+                {
+                    textWriter.Write(" <");
+                    textWriter.Write(nodeEvent.Tag.Value);
+                    textWriter.Write(">");
+                }
             }
         }
 

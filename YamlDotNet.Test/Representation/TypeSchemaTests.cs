@@ -50,7 +50,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void X()
         {
-            var tagMappings = new Dictionary<Type, Either<INodeMatcher<INodeMapper>, Func<Type, INodeMatcher<INodeMapper>>>>
+            var tagMappings = new Dictionary<Type, Either<INodeMatcher<INodeMapper>, NodeMatcherFactory>>
             {
                 {
                     typeof(int),
@@ -67,6 +67,16 @@ namespace YamlDotNet.Test.Representation
                         new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.Integer))
                     }
                 },
+                {
+                    typeof(Dictionary<int, string>),
+                    new NodeKindMatcher<INodeMapper>(NodeKind.Mapping, MappingMapper<int, string>.Default)
+                    {
+                        new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.Integer))
+                        {
+                            new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.String))
+                        }
+                    }
+                },
             };
 
             var sut = new TypeSchema(typeof(SimpleModel), CoreSchema.Instance, tagMappings);
@@ -76,6 +86,10 @@ namespace YamlDotNet.Test.Representation
             var stream = Stream.Load(Yaml.ParserForText(@"
                 Value: 123
                 List: [ 1, 2 ]
+                Dict:
+                    1: one
+                    2: two
+                    3: three
                 RecursiveChild: { Value: 456 }
                 Child: { Name: abc }
             "), _ => sut);
@@ -86,11 +100,14 @@ namespace YamlDotNet.Test.Representation
             Assert.Equal(123, model.Value);
             Assert.Equal(456, model.RecursiveChild!.Value);
 
-            var representation = sut.RootMapper.Represent(model, sut, new NodePath());
-            Assert.Equal(content, representation);
-            //sut.ResolveMapper(model, );
+            var representation = sut.Represent(model);
+            Assert.Equal(content, representation.Content);
 
-            var yaml = Stream.Dump(new[] { new Document(representation, sut) });
+            var yaml = Stream.Dump(new[] { representation });
+            output.WriteLine("=== Dumped YAML ===");
+            output.WriteLine(yaml);
+
+            yaml = Stream.Dump(new[] { new Document(representation.Content, FailsafeSchema.Strict) });
             output.WriteLine("=== Dumped YAML ===");
             output.WriteLine(yaml);
         }
@@ -100,6 +117,9 @@ namespace YamlDotNet.Test.Representation
             public int Value { get; set; }
 
             public List<int>? List { get; set; }
+            public Dictionary<int, string>? Dict { get; set; }
+
+            // TODO: List<SimpleModelChild>
 
             public SimpleModel? RecursiveChild { get; set; }
             public SimpleModelChild? Child { get; set; }

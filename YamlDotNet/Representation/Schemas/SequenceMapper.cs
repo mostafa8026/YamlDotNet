@@ -33,9 +33,9 @@ namespace YamlDotNet.Representation.Schemas
     /// A mapper of sequences to collections.
     /// </summary>
     /// <typeparam name="TSequence">The type of the sequences that this will handle.</typeparam>
-    /// <typeparam name="TElement">The type of the elements of the elements of the sequence.</typeparam>
+    /// <typeparam name="TElement">The type of the elements of the sequence.</typeparam>
     /// <remarks>
-    /// Use <typeparamref name="TSequence"/> as native representation.
+    /// Uses <typeparamref name="TSequence"/> as native representation.
     /// </remarks>
     public sealed class SequenceMapper<TSequence, TElement> : NodeMapper<TSequence>
         where TSequence : ICollection<TElement>
@@ -75,7 +75,7 @@ namespace YamlDotNet.Representation.Schemas
                 var path = currentPath.GetCurrentPath();
                 foreach (var item in native)
                 {
-                    var mapper = schema.ResolveMapper(item, path);
+                    var mapper = schema.ResolveChildMapper(item, path);
                     var childNode = mapper.Represent(item, schema, currentPath);
                     items.Add(childNode);
                 }

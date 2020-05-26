@@ -238,7 +238,7 @@ namespace YamlDotNet.Test.Representation
                 return false;
             }
 
-            public INodeMapper ResolveMapper(object? native, IEnumerable<INodePathSegment> path)
+            public INodeMapper ResolveChildMapper(object? native, IEnumerable<INodePathSegment> path)
             {
                 return null; // TODO
             }

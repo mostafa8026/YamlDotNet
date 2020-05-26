@@ -60,6 +60,11 @@ namespace YamlDotNet
             return type.GetTypeInfo().IsGenericType;
         }
 
+        public static bool IsGenericTypeDefinition(this Type type)
+        {
+            return type.GetTypeInfo().IsGenericTypeDefinition;
+        }
+
         public static bool IsInterface(this Type type)
         {
             return type.GetTypeInfo().IsInterface;
@@ -312,6 +317,11 @@ namespace YamlDotNet
             return type.IsGenericType;
         }
 
+        public static bool IsGenericTypeDefinition(this Type type)
+        {
+            return type.IsGenericTypeDefinition;
+        }
+
         public static bool IsInterface(this Type type)
         {
             return type.IsInterface;
@@ -474,9 +484,7 @@ namespace System.Linq.Expressions
 
 namespace System.Linq
 {
-    using YamlDotNet;
-
-    internal static class Enumerable
+    internal static partial class Enumerable
     {
         public static List<T> ToList<T>(this IEnumerable<T> sequence)
         {
@@ -920,6 +928,22 @@ namespace System.Runtime.Versioning
 #endif
 
 #if NET20 || NET35 || UNITY
+namespace System.Linq
+{
+    internal static partial class Enumerable2
+    {
+        public static IEnumerable<TResult> Zip<TFirst, TSecond, TResult>(this IEnumerable<TFirst> first, IEnumerable<TSecond> second, Func<TFirst, TSecond, TResult> resultSelector)
+        {
+            using var firstEnumerator = first.GetEnumerator();
+            using var secondEnumerator = second.GetEnumerator();
+            while (firstEnumerator.MoveNext() && secondEnumerator.MoveNext())
+            {
+                yield return resultSelector(firstEnumerator.Current, secondEnumerator.Current);
+            }
+        }
+    }
+}
+
 namespace System.Collections.Concurrent
 {
     internal sealed class ConcurrentDictionary<TKey, TValue>

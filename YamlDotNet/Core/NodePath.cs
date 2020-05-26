@@ -29,7 +29,6 @@ namespace YamlDotNet.Core
         const int initialCapacity = 50;
         private INodePathSegment[] currentPath = new INodePathSegment[initialCapacity];
         private int count = 0;
-        private int version = 0;
 
         public IDisposable Push(INodePathSegment segment)
         {
@@ -69,25 +68,14 @@ namespace YamlDotNet.Core
             }
 
             --count;
-            ++version; // Pop() invalidates previously returned enumerators
         }
 
         public IEnumerable<INodePathSegment> GetCurrentPath()
         {
-            return Snapshot(count, version);
-        }
-
-        private IEnumerable<INodePathSegment> Snapshot(int length, int expectedVersion)
-        {
-            for (var i = 0; i < length; ++i)
-            {
-                if (version != expectedVersion)
-                {
-                    throw new InvalidOperationException("The NodePath from which this enumerator was build was modified.");
-                }
-
-                yield return currentPath[i];
-            }
+            // TODO: Evaluate whether this is the best approach
+            var snapshot = new INodePathSegment[count];
+            Array.Copy(currentPath, 0, snapshot, 0, count);
+            return snapshot;
         }
     }
 }

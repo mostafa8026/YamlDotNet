@@ -20,44 +20,54 @@
 //  SOFTWARE.
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using YamlDotNet.Core;
 using YamlDotNet.Helpers;
 using YamlDotNet.Serialization.Utilities;
 
 namespace YamlDotNet.Representation.Schemas
 {
+    public delegate TMapping MappingFactory<TMapping>(int size);
+
     /// <summary>
     /// The tag:yaml.org,2002:map tag, as specified in the Failsafe schema.
     /// </summary>
+    /// <typeparam name="TMapping">The type of the mappings that this will handle.</typeparam>
+    /// <typeparam name="TKey">The type of the keys of the mapping.</typeparam>
+    /// <typeparam name="TValue">The type of the values of the mapping.</typeparam>
     /// <remarks>
-    /// Use <see cref="Dictionary{TKey, TValue}(System.Object, System.Object)" /> as native representation.
+    /// Uses <typeparamref name="TMapping"/> as native representation.
     /// </remarks>
-    public sealed class MappingMapper : INodeMapper
+    public sealed class MappingMapper<TMapping, TKey, TValue> : NodeMapper<TMapping>
+        where TMapping : IDictionary<TKey, TValue>
     {
-        public static readonly MappingMapper Instance = new MappingMapper();
+        private readonly MappingFactory<TMapping> factory;
 
-        private MappingMapper() { }
+        public MappingMapper(TagName tag, MappingFactory<TMapping> factory) : base(tag)
+        {
+            this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
+        }
 
-        public TagName Tag => YamlTagRepository.Mapping;
-        public NodeKind MappedNodeKind => NodeKind.Mapping;
+        public override NodeKind MappedNodeKind => NodeKind.Mapping;
 
-        public object? Construct(Node node)
+        public override TMapping Construct(Node node)
         {
             var mapping = node.Expect<Mapping>();
-            var dictionary = new Dictionary<object, object?>(mapping.Count);
+            var dictionary = factory(mapping.Count);
             foreach (var (keyNode, valueNode) in mapping)
             {
-                var key = keyNode.Mapper.Construct(keyNode)!;
+                var key = keyNode.Mapper.Construct(keyNode);
+                var convertedKey = TypeConverter.ChangeType<TKey>(key);
+
                 var value = valueNode.Mapper.Construct(valueNode);
-                dictionary.Add(key, value);
+                var convertedValue = TypeConverter.ChangeType<TValue>(value);
+                
+                dictionary.Add(convertedKey, convertedValue);
             }
             return dictionary;
         }
 
-        public Node Represent(object? native, ISchema schema, NodePath currentPath)
+        public override Node Represent(TMapping native, ISchema schema, NodePath currentPath)
         {
             var items = new Dictionary<Node, Node>();
 
@@ -68,14 +78,14 @@ namespace YamlDotNet.Representation.Schemas
             using (currentPath.Push(mapping))
             {
                 var basePath = currentPath.GetCurrentPath();
-                foreach (var (key, value) in IterateDictonary(native!))
+                foreach (var (key, value) in native)
                 {
-                    var keyMapper = schema.ResolveMapper(key, basePath);
+                    var keyMapper = schema.ResolveChildMapper(key, basePath);
                     var keyNode = keyMapper.Represent(key, schema, currentPath);
 
                     using (currentPath.Push(keyNode))
                     {
-                        var valueMapper = schema.ResolveMapper(value, basePath);
+                        var valueMapper = schema.ResolveChildMapper(value, currentPath.GetCurrentPath());
                         var valueNode = valueMapper.Represent(value, schema, currentPath);
 
                         items.Add(keyNode, valueNode);
@@ -85,45 +95,10 @@ namespace YamlDotNet.Representation.Schemas
 
             return mapping;
         }
+    }
 
-        private static IEnumerable<KeyValuePair<object, object?>> IterateDictonary(object dictionary)
-        {
-            if (dictionary is IDictionary nonGenericDictionary)
-            {
-                return IterateNonGenericDictionary(nonGenericDictionary);
-            }
-            else
-            {
-                var iDictionaryType = ReflectionUtility.GetImplementedGenericInterface(typeof(IDictionary<,>), dictionary.GetType());
-                if (iDictionaryType == null)
-                {
-                    throw new InvalidOperationException("The object must implement either IDictionary or IDictionary<TKey, TValue>.");
-                }
-
-                return (IEnumerable<KeyValuePair<object, object?>>)iterateGenericDictonaryMethod
-                    .MakeGenericMethod(iDictionaryType.GetGenericArguments())
-                    .Invoke(null, new object?[] { dictionary })!;
-            }
-        }
-
-        private static readonly MethodInfo iterateGenericDictonaryMethod = typeof(MappingMapper).GetPrivateStaticMethod(nameof(IterateGenericDictonary));
-
-        private static IEnumerable<KeyValuePair<object, object?>> IterateNonGenericDictionary(IDictionary nonGenericDictionary)
-        {
-            foreach (var entry in nonGenericDictionary)
-            {
-                var pair = (DictionaryEntry)entry!;
-                yield return new KeyValuePair<object, object?>(pair.Key, pair.Value);
-            }
-        }
-
-        private static IEnumerable<KeyValuePair<object, object?>> IterateGenericDictonary<TKey, TValue>(IDictionary<TKey, TValue> genericDictionary)
-            where TKey : notnull
-        {
-            foreach (var entry in genericDictionary)
-            {
-                yield return new KeyValuePair<object, object?>(entry.Key, entry.Value);
-            }
-        }
+    public static class MappingMapper<TKey, TValue>
+    {
+        public static readonly MappingMapper<IDictionary<TKey, TValue>, TKey, TValue> Default = new MappingMapper<IDictionary<TKey, TValue>, TKey, TValue>(YamlTagRepository.Mapping, n => new Dictionary<TKey, TValue>(n));
     }
 }

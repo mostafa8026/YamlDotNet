@@ -64,7 +64,7 @@ namespace YamlDotNet.Representation.Schemas
 
         public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
         {
-            resolvedTag = MappingMapper.Instance;
+            resolvedTag = MappingMapper<object, object>.Default;
             return true;
         }
 
@@ -98,7 +98,7 @@ namespace YamlDotNet.Representation.Schemas
             return node.Tag.Equals(YamlTagRepository.Sequence);
         }
 
-        public INodeMapper ResolveMapper(object? native, IEnumerable<INodePathSegment> path)
+        public INodeMapper ResolveChildMapper(object? native, IEnumerable<INodePathSegment> path)
         {
             throw new System.NotImplementedException();
         }

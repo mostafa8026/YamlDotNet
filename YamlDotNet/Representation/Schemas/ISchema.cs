@@ -104,6 +104,6 @@ namespace YamlDotNet.Representation.Schemas
         bool ResolveMapper(TagName tag, [NotNullWhen(true)] out INodeMapper? mapper);
 
         // TODO: Review naming and parameters
-        INodeMapper ResolveMapper(object? native, IEnumerable<INodePathSegment> path);
+        INodeMapper ResolveChildMapper(object? native, IEnumerable<INodePathSegment> path);
     }
 }
