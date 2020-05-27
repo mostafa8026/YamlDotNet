@@ -21,14 +21,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using YamlDotNet.Core;
 using YamlDotNet.Helpers;
 using YamlDotNet.Serialization.Utilities;
 
 namespace YamlDotNet.Representation.Schemas
 {
-    public delegate TSequence SequenceFactory<TSequence>(int size);
-
     /// <summary>
     /// A mapper of sequences to collections.
     /// </summary>
@@ -40,9 +39,9 @@ namespace YamlDotNet.Representation.Schemas
     public sealed class SequenceMapper<TSequence, TElement> : NodeMapper<TSequence>
         where TSequence : ICollection<TElement>
     {
-        private readonly SequenceFactory<TSequence> factory;
+        private readonly CollectionFactory<TSequence> factory;
 
-        public SequenceMapper(TagName tag, SequenceFactory<TSequence> factory) : base(tag)
+        public SequenceMapper(TagName tag, CollectionFactory<TSequence> factory) : base(tag)
         {
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
         }
@@ -53,11 +52,26 @@ namespace YamlDotNet.Representation.Schemas
         {
             var sequence = node.Expect<Sequence>();
             var collection = factory(sequence.Count);
-            foreach (var child in sequence)
+
+            // Handle pre-allocated and fixed-size collections, such as arrays
+            if (collection.Count != 0 && collection is IList<TElement> list)
             {
-                var item = child.Mapper.Construct(child);
-                var convertedItem = TypeConverter.ChangeType<TElement>(item);
-                collection.Add(convertedItem);
+                for (var i = 0; i < sequence.Count; ++i)
+                {
+                    var child = sequence[i];
+                    var item = child.Mapper.Construct(child);
+                    var convertedItem = TypeConverter.ChangeType<TElement>(item);
+                    list[i] = convertedItem;
+                }
+            }
+            else
+            {
+                foreach (var child in sequence)
+                {
+                    var item = child.Mapper.Construct(child);
+                    var convertedItem = TypeConverter.ChangeType<TElement>(item);
+                    collection.Add(convertedItem);
+                }
             }
             return collection;
         }
@@ -88,5 +102,38 @@ namespace YamlDotNet.Representation.Schemas
     public static class SequenceMapper<T>
     {
         public static readonly SequenceMapper<ICollection<T>, T> Default = new SequenceMapper<ICollection<T>, T>(YamlTagRepository.Sequence, n => new List<T>(n));
+    }
+
+    public static class SequenceMapper
+    {
+        public static INodeMapper Default(Type itemType)
+        {
+            var mapperType = typeof(SequenceMapper<>).MakeGenericType(itemType);
+            var defaultField = mapperType.GetPublicStaticField(nameof(SequenceMapper<object>.Default))
+                ?? throw new MissingMemberException($"Expected to find a property named '{nameof(SequenceMapper<object>.Default)}' in class '{mapperType.FullName}'.");
+
+            return (INodeMapper)defaultField.GetValue(null)!;
+        }
+        public static INodeMapper Create(Type sequenceType, Type itemType)
+        {
+            return Create(YamlTagRepository.Sequence, sequenceType, itemType);
+        }
+
+        public static INodeMapper Create(TagName tag, Type sequenceType, Type itemType)
+        {
+            return (INodeMapper)createHelperGenericMethod
+                .MakeGenericMethod(sequenceType, itemType)
+                .Invoke(null, new object[] { tag })!;
+        }
+
+        private static readonly MethodInfo createHelperGenericMethod = typeof(SequenceMapper).GetPrivateStaticMethod(nameof(CreateHelper))
+            ?? throw new MissingMethodException($"Expected to find a method named '{nameof(CreateHelper)}' in class '{typeof(SequenceMapper).FullName}'.");
+
+        private static INodeMapper CreateHelper<TSequence, TItem>(TagName tag)
+            where TSequence : ICollection<TItem>
+        {
+            var factory = CollectionFactoryHelper.CreateFactory<TSequence>();
+            return new SequenceMapper<TSequence, TItem>(tag, factory);
+        }
     }
 }

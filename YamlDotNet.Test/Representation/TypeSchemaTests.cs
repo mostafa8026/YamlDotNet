@@ -50,7 +50,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void X()
         {
-            var tagMappings = new Dictionary<Type, Either<INodeMatcher<INodeMapper>, NodeMatcherFactory>>
+            var tagMappings = new TypeMatcherTable
             {
                 {
                     typeof(int),
@@ -61,20 +61,31 @@ namespace YamlDotNet.Test.Representation
                     new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.String))
                 },
                 {
-                    typeof(List<int>),
-                    new NodeKindMatcher<INodeMapper>(NodeKind.Sequence, SequenceMapper<int>.Default)
-                    {
-                        new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.Integer))
+                    typeof(ICollection<>),
+                    (concrete, iCollection, lookupMatcher) => {
+                        var itemType = iCollection.GetGenericArguments()[0];
+                        return new NodeKindMatcher<INodeMapper>(NodeKind.Sequence, SequenceMapper.Default(itemType))
+                        {
+                            lookupMatcher(itemType)
+                        };
                     }
                 },
                 {
-                    typeof(Dictionary<int, string>),
-                    new NodeKindMatcher<INodeMapper>(NodeKind.Mapping, MappingMapper<int, string>.Default)
-                    {
-                        new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.Integer))
+                    typeof(IDictionary<,>),
+                    (concrete, iDictionary, lookupMatcher) => {
+                        var types = iDictionary.GetGenericArguments();
+                        var keyType = types[0];
+                        var valueType = types[1];
+
+                        var keyMapper = lookupMatcher(keyType).Value;
+
+                        return new NodeKindMatcher<INodeMapper>(NodeKind.Mapping, MappingMapper.Default(keyType, valueType))
                         {
-                            new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.String))
-                        }
+                            new NodeKindMatcher<INodeMapper>(keyMapper.MappedNodeKind, keyMapper)
+                            {
+                                lookupMatcher(valueType)
+                            }
+                        };
                     }
                 },
             };

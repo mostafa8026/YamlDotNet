@@ -117,7 +117,9 @@ namespace YamlDotNet.Representation
                 using (currentPath.Push(scalar))
                 {
                     var mapper = ResolveNode(scalar, schema.ResolveNonSpecificTag);
-                    return new Scalar(mapper, scalar.Value);
+                    var node = new Scalar(mapper, scalar.Value);
+                    AddAnchoredNode(scalar.Anchor, node);
+                    return node;
                 }
             }
 
@@ -128,13 +130,20 @@ namespace YamlDotNet.Representation
                     var mapper = ResolveNode(sequenceStart, schema.ResolveNonSpecificTag);
 
                     var items = new List<Node>();
-                    while (parser.TryConsume<NodeEvent>(out var nodeEvent))
+
+                    // Notice that the items collection will still be mutated after constructing the Sequence object.
+                    // We need to create it now in order to support recursive anchors.
+                    var sequence = new Sequence(mapper, items.AsReadonlyList());
+                    AddAnchoredNode(sequenceStart.Anchor, sequence);
+
+                    while (!parser.TryConsume<SequenceEnd>(out _))
                     {
+                        var nodeEvent = parser.Consume<ParsingEvent>();
                         var child = nodeEvent.Accept(this);
                         items.Add(child);
                     }
-                    parser.Consume<SequenceEnd>();
-                    return new Sequence(mapper, items.AsReadonlyList());
+
+                    return sequence;
                 }
             }
 
@@ -144,19 +153,26 @@ namespace YamlDotNet.Representation
                 {
                     var mapper = ResolveNode(mappingStart, schema.ResolveNonSpecificTag);
                     var items = new Dictionary<Node, Node>();
-                    while (parser.TryConsume<NodeEvent>(out var keyNodeEvent))
-                    {
-                        var key = keyNodeEvent.Accept(this);
 
-                        var valueNodeEvent = parser.Consume<NodeEvent>();
-                        using (currentPath.Push(keyNodeEvent))
+                    // Notice that the items collection will still be mutated after constructing the Sequence object.
+                    // We need to create it now in order to support recursive anchors.
+                    var mapping = new Mapping(mapper, items.AsReadonlyDictionary());
+                    AddAnchoredNode(mappingStart.Anchor, mapping);
+
+                    while (!parser.TryConsume<MappingEnd>(out _))
+                    {
+                        var keyEvent = parser.Consume<ParsingEvent>();
+                        var key = keyEvent.Accept(this);
+
+                        using (currentPath.Push(key))
                         {
-                            var value = valueNodeEvent.Accept(this);
+                            var valueEvent = parser.Consume<ParsingEvent>();
+                            var value = valueEvent.Accept(this);
                             items.Add(key, value);
                         }
                     }
-                    parser.Consume<MappingEnd>();
-                    return new Mapping(mapper, items.AsReadonlyDictionary());
+
+                    return mapping;
                 }
             }
 
@@ -167,6 +183,14 @@ namespace YamlDotNet.Representation
             public Node Visit(DocumentEnd documentEnd) => throw UnexpectedEvent(documentEnd);
             public Node Visit(StreamStart streamStart) => throw UnexpectedEvent(streamStart);
             public Node Visit(StreamEnd streamEnd) => throw UnexpectedEvent(streamEnd);
+
+            private void AddAnchoredNode(AnchorName anchor, Node node)
+            {
+                if (!anchor.IsEmpty)
+                {
+                    anchoredNodes[anchor] = node;
+                }
+            }
 
             private delegate bool ResolveNonSpecificTagDelegate<TNode>(TNode node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag);
 
@@ -228,18 +252,40 @@ namespace YamlDotNet.Representation
                 return assignedAnchors;
             }
 
-            private Empty VisitNode(Node node)
+            private void VisitNode(Node node)
             {
-                if (!encounteredNodes.Add(node))
+                if (!encounteredNodes.Add(node) && !assignedAnchors.ContainsKey(node))
                 {
                     assignedAnchors.Add(node, assignAnchor(node));
+                }
+            }
+
+            Empty INodeVisitor<Empty>.Visit(Scalar scalar)
+            {
+                VisitNode(scalar);
+                return default;
+            }
+
+            Empty INodeVisitor<Empty>.Visit(Sequence sequence)
+            {
+                VisitNode(sequence);
+                foreach (var child in sequence)
+                {
+                    child.Accept(this);
                 }
                 return default;
             }
 
-            Empty INodeVisitor<Empty>.Visit(Scalar scalar) => VisitNode(scalar);
-            Empty INodeVisitor<Empty>.Visit(Sequence sequence) => VisitNode(sequence);
-            Empty INodeVisitor<Empty>.Visit(Mapping mapping) => VisitNode(mapping);
+            Empty INodeVisitor<Empty>.Visit(Mapping mapping)
+            {
+                VisitNode(mapping);
+                foreach (var (key, value) in mapping)
+                {
+                    key.Accept(this);
+                    value.Accept(this);
+                }
+                return default;
+            }
         }
 
         private sealed class NodeDumper : INodeVisitor<Empty>

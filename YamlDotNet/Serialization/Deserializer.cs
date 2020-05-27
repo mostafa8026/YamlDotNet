@@ -25,6 +25,7 @@ using System.IO;
 using System.Linq;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
+using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
 using YamlDotNet.Serialization.Converters;
 using YamlDotNet.Serialization.NamingConventions;
@@ -136,7 +137,69 @@ namespace YamlDotNet.Serialization
                 throw new ArgumentNullException(nameof(type));
             }
 
-            var documents = Representation.Stream.Load(parser, _ => FailsafeSchema.Lenient);
+            var baseSchema = CoreSchema.Instance;
+
+            INodeMapper GetBaseMapper(TagName tag)
+            {
+                return CoreSchema.Instance.ResolveMapper(tag, out var mapper)
+                    ? mapper
+                    : throw new Exception($"Mapper for tag '{tag}' not found.");
+            }
+
+            var integerMapper = GetBaseMapper(YamlTagRepository.Integer);
+            var floatingPointMapper = GetBaseMapper(YamlTagRepository.FloatingPoint);
+            var stringMapper = GetBaseMapper(YamlTagRepository.String);
+
+            var typeMatchers = new TypeMatcherTable
+            {
+                { typeof(sbyte), integerMapper },
+                { typeof(byte), integerMapper },
+                { typeof(short), integerMapper },
+                { typeof(ushort), integerMapper },
+                { typeof(int), integerMapper },
+                { typeof(uint), integerMapper },
+                { typeof(long), integerMapper },
+                { typeof(ulong), integerMapper },
+
+                { typeof(float), floatingPointMapper },
+                { typeof(double), floatingPointMapper },
+                
+                { typeof(string), stringMapper },
+                { typeof(char), stringMapper }, // TODO: Test this
+
+                {
+                    typeof(ICollection<>),
+                    (concrete, iCollection, lookupMatcher) => {
+                        var itemType = iCollection.GetGenericArguments()[0];
+                        return new NodeKindMatcher<INodeMapper>(NodeKind.Sequence, SequenceMapper.Create(concrete, itemType))
+                        {
+                            lookupMatcher(itemType)
+                        };
+                    }
+                },
+                {
+                    typeof(IDictionary<,>),
+                    (concrete, iDictionary, lookupMatcher) => {
+                        var types = iDictionary.GetGenericArguments();
+                        var keyType = types[0];
+                        var valueType = types[1];
+
+                        var keyMapper = lookupMatcher(keyType).Value;
+
+                        return new NodeKindMatcher<INodeMapper>(NodeKind.Mapping, MappingMapper.Create(concrete, keyType, valueType))
+                        {
+                            new NodeKindMatcher<INodeMapper>(keyMapper.MappedNodeKind, keyMapper)
+                            {
+                                lookupMatcher(valueType)
+                            }
+                        };
+                    }
+                },
+            };
+
+            var schema = new TypeSchema(type, CoreSchema.Instance, typeMatchers);
+
+            var documents = Representation.Stream.Load(parser, _ => schema);
             var document = documents.First();
 
             return document.Content.Mapper.Construct(document.Content);

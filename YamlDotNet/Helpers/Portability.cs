@@ -188,6 +188,17 @@ namespace YamlDotNet
             return type.GetRuntimeProperty(name);
         }
 
+        public static FieldInfo? GetPublicStaticField(this Type type, string name)
+        {
+            return type.GetRuntimeField(name);
+        }
+
+        public static IEnumerable<ConstructorInfo> GetConstructors(this Type type)
+        {
+            return type.GetTypeInfo().DeclaredConstructors
+                .Where(c => c.IsPublic && !c.IsStatic);
+        }
+
         public static IEnumerable<PropertyInfo> GetPublicProperties(this Type type)
         {
             var instancePublic = new Func<PropertyInfo, bool>(
@@ -357,6 +368,11 @@ namespace YamlDotNet
         public static PropertyInfo? GetPublicProperty(this Type type, string name)
         {
             return type.GetProperty(name);
+        }
+
+        public static FieldInfo? GetPublicStaticField(this Type type, string name)
+        {
+            return type.GetField(name, BindingFlags.Static | BindingFlags.Public);
         }
 
         public static IEnumerable<PropertyInfo> GetPublicProperties(this Type type)

@@ -21,14 +21,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using YamlDotNet.Core;
 using YamlDotNet.Helpers;
 using YamlDotNet.Serialization.Utilities;
 
 namespace YamlDotNet.Representation.Schemas
 {
-    public delegate TMapping MappingFactory<TMapping>(int size);
-
     /// <summary>
     /// The tag:yaml.org,2002:map tag, as specified in the Failsafe schema.
     /// </summary>
@@ -40,10 +39,11 @@ namespace YamlDotNet.Representation.Schemas
     /// </remarks>
     public sealed class MappingMapper<TMapping, TKey, TValue> : NodeMapper<TMapping>
         where TMapping : IDictionary<TKey, TValue>
+        where TKey : notnull
     {
-        private readonly MappingFactory<TMapping> factory;
+        private readonly CollectionFactory<TMapping> factory;
 
-        public MappingMapper(TagName tag, MappingFactory<TMapping> factory) : base(tag)
+        public MappingMapper(TagName tag, CollectionFactory<TMapping> factory) : base(tag)
         {
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
         }
@@ -61,7 +61,7 @@ namespace YamlDotNet.Representation.Schemas
 
                 var value = valueNode.Mapper.Construct(valueNode);
                 var convertedValue = TypeConverter.ChangeType<TValue>(value);
-                
+
                 dictionary.Add(convertedKey, convertedValue);
             }
             return dictionary;
@@ -97,8 +97,43 @@ namespace YamlDotNet.Representation.Schemas
         }
     }
 
-    public static class MappingMapper<TKey, TValue>
+    public static class MappingMapper<TKey, TValue> where TKey : notnull
     {
         public static readonly MappingMapper<IDictionary<TKey, TValue>, TKey, TValue> Default = new MappingMapper<IDictionary<TKey, TValue>, TKey, TValue>(YamlTagRepository.Mapping, n => new Dictionary<TKey, TValue>(n));
+    }
+
+    public static class MappingMapper
+    {
+        public static INodeMapper Default(Type keyType, Type valueType)
+        {
+            var mapperType = typeof(MappingMapper<,>).MakeGenericType(keyType, valueType);
+            var defaultField = mapperType.GetPublicStaticField(nameof(MappingMapper<object, object>.Default))
+                ?? throw new MissingMemberException($"Expected to find a property named '{nameof(MappingMapper<object, object>.Default)}' in class '{mapperType.FullName}'.");
+
+            return (INodeMapper)defaultField.GetValue(null)!;
+        }
+
+        public static INodeMapper Create(Type mappingType, Type keyType, Type valueType)
+        {
+            return Create(YamlTagRepository.Mapping, mappingType, keyType, valueType);
+        }
+
+        public static INodeMapper Create(TagName tag, Type mappingType, Type keyType, Type valueType)
+        {
+            return (INodeMapper)createHelperGenericMethod
+                .MakeGenericMethod(mappingType, keyType, valueType)
+                .Invoke(null, new object[] { tag })!;
+        }
+
+        private static readonly MethodInfo createHelperGenericMethod = typeof(MappingMapper).GetPrivateStaticMethod(nameof(CreateHelper))
+            ?? throw new MissingMethodException($"Expected to find a method named '{nameof(CreateHelper)}' in class '{typeof(MappingMapper).FullName}'.");
+
+        private static INodeMapper CreateHelper<TMapping, TKey, TValue>(TagName tag)
+            where TMapping : IDictionary<TKey, TValue>
+            where TKey : notnull
+        {
+            var factory = CollectionFactoryHelper.CreateFactory<TMapping>();
+            return new MappingMapper<TMapping, TKey, TValue>(tag, factory);
+        }
     }
 }

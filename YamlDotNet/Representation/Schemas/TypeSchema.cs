@@ -20,6 +20,7 @@
 //  SOFTWARE.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -34,43 +35,71 @@ using NodeMatcherInstanceOrFactory = YamlDotNet.Helpers.Either<
 
 namespace YamlDotNet.Representation.Schemas
 {
-    public delegate INodeMatcher<INodeMapper> NodeMatcherFactory(Type sourceType);
+    public delegate INodeMatcher<INodeMapper> NodeMatcherFactory(Type sourceType, Type matchedType, Func<Type, INodeMatcher<INodeMapper>> nodeMapperLookup);
+
+    public sealed class TypeMatcherTable : IEnumerable<KeyValuePair<Type, NodeMatcherInstanceOrFactory>>
+    {
+        private readonly IDictionary<Type, INodeMatcher<INodeMapper>> nodeMatchers = new Dictionary<Type, INodeMatcher<INodeMapper>>();
+        private readonly IDictionary<Type, NodeMatcherFactory> nodeMatcherFactories = new Dictionary<Type, NodeMatcherFactory>();
+
+        public void Add(Type type, INodeMapper nodeMapper)
+        {
+            Add(type, new NodeKindMatcher<INodeMapper>(nodeMapper.MappedNodeKind, nodeMapper));
+        }
+
+        public void Add(Type type, INodeMatcher<INodeMapper> nodeMatcher)
+        {
+            nodeMatchers.Add(type, nodeMatcher);
+        }
+
+        public void Add(Type type, NodeMatcherFactory nodeMatcherFactory)
+        {
+            nodeMatcherFactories.Add(type, nodeMatcherFactory);
+        }
+
+        public IEnumerator<KeyValuePair<Type, NodeMatcherInstanceOrFactory>> GetEnumerator()
+        {
+            foreach (var (type, nodeMatcher) in nodeMatchers)
+            {
+                yield return new KeyValuePair<Type, NodeMatcherInstanceOrFactory>(type, nodeMatcher.AsEither());
+            }
+            foreach (var (type, nodeMatcherFactory) in nodeMatcherFactories)
+            {
+                yield return new KeyValuePair<Type, NodeMatcherInstanceOrFactory>(type, nodeMatcherFactory);
+            }
+        }
+
+        public IDictionary<Type, INodeMatcher<INodeMapper>> GetNodeMatchers() => new Dictionary<Type, INodeMatcher<INodeMapper>>(nodeMatchers);
+        public IDictionary<Type, NodeMatcherFactory> GetNodeMatcherFactories() => new Dictionary<Type, NodeMatcherFactory>(nodeMatcherFactories);
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
 
     public sealed class TypeSchema : ISchema
     {
         private readonly ISchema baseSchema;
-        private readonly IDictionary<Type, NodeMatcherFactory> nodeMatcherFactories;
         private readonly IDictionary<Type, INodeMatcher<INodeMapper>> nodeMatchers;
+        private readonly IDictionary<Type, NodeMatcherFactory> nodeMatcherFactories;
         private readonly INodeMatcher<INodeMapper> rootMatcher;
 
+        private static readonly IDictionary<Type, INodeMatcher<INodeMapper>> EmptyNodeMatchers = new Dictionary<Type, INodeMatcher<INodeMapper>>();
+        private static readonly IDictionary<Type, NodeMatcherFactory> EmptyNodeMatcherFactories = new Dictionary<Type, NodeMatcherFactory>();
+
         public TypeSchema(Type root, ISchema baseSchema)
-            : this(root, baseSchema, Enumerable.Empty<KeyValuePair<Type, NodeMatcherInstanceOrFactory>>())
+            : this(root, baseSchema, EmptyNodeMatchers, EmptyNodeMatcherFactories)
         {
         }
 
-        public TypeSchema(Type root, ISchema baseSchema, IEnumerable<KeyValuePair<Type, NodeMatcherInstanceOrFactory>> tagMappings)
+        public TypeSchema(Type root, ISchema baseSchema, TypeMatcherTable typeMatchers)
+            : this(root, baseSchema, typeMatchers.GetNodeMatchers(), typeMatchers.GetNodeMatcherFactories())
+        {
+        }
+
+        private TypeSchema(Type root, ISchema baseSchema, IDictionary<Type, INodeMatcher<INodeMapper>> nodeMatchers, IDictionary<Type, NodeMatcherFactory> nodeMatcherFactories)
         {
             this.baseSchema = baseSchema ?? throw new ArgumentNullException(nameof(baseSchema));
-
-            nodeMatchers = new Dictionary<Type, INodeMatcher<INodeMapper>>();
-            nodeMatcherFactories = new Dictionary<Type, NodeMatcherFactory>();
-
-            foreach (var (type, mapperOrFactory) in tagMappings)
-            {
-                if (mapperOrFactory.IsEmpty)
-                {
-                    throw new ArgumentException("Tag mappings cannot contain empty values", nameof(tagMappings));
-                }
-
-                if (mapperOrFactory.GetValue(out var mapper, out var factory))
-                {
-                    nodeMatchers.Add(type, mapper);
-                }
-                else
-                {
-                    nodeMatcherFactories.Add(type, factory);
-                }
-            }
+            this.nodeMatchers = nodeMatchers;
+            this.nodeMatcherFactories = nodeMatcherFactories;
 
             rootMatcher = BuildNodeMatcherTree(root);
         }
@@ -85,7 +114,7 @@ namespace YamlDotNet.Representation.Schemas
         {
             if (!nodeMatchers.TryGetValue(type, out var nodeMatcher))
             {
-                if (TryLookupNodeMatcher(type, out nodeMatcher))
+                if (TryLookupNodeMatcher(type, new Stack<Type>(2), out nodeMatcher))
                 {
                     nodeMatchers.Add(type, nodeMatcher);
                     return nodeMatcher;
@@ -111,7 +140,25 @@ namespace YamlDotNet.Representation.Schemas
             return nodeMatcher;
         }
 
-        private bool TryLookupNodeMatcher(Type type, [NotNullWhen(true)] out INodeMatcher<INodeMapper>? nodeMatcher)
+        private INodeMatcher<INodeMapper> LookupNodeMatcher(Type type, Type parentLookupType, Stack<Type> recursionDetector)
+        {
+            // Recursion can only happen through this method, that's why we try to detect it here instead of inside TryLookupNodeMatcher
+            recursionDetector.Push(parentLookupType);
+            if (recursionDetector.Contains(type))
+            {
+                throw new YamlException($"Node matcher lookup for type '{type.FullName}' attempted to resolve itself. The recursion path was:\n{string.Join("\n", recursionDetector.Select(t => t.FullName).ToArray())}");
+            }
+
+            if (!TryLookupNodeMatcher(type, recursionDetector, out var nodeMatcher))
+            {
+                throw new YamlException($"Could not lookup a node matcher for type '{type.FullName}'.");
+            }
+
+            recursionDetector.Pop();
+            return nodeMatcher;
+        }
+
+        private bool TryLookupNodeMatcher(Type type, Stack<Type> recursionDetector, [NotNullWhen(true)] out INodeMatcher<INodeMapper>? nodeMatcher)
         {
             foreach (var candidate in GetSuperTypes(type))
             {
@@ -122,13 +169,13 @@ namespace YamlDotNet.Representation.Schemas
 
                 if (nodeMatcherFactories.TryGetValue(candidate, out var matcherFactory))
                 {
-                    nodeMatcher = matcherFactory(candidate);
+                    nodeMatcher = matcherFactory(type, candidate, t => LookupNodeMatcher(t, type, recursionDetector));
                     return true;
                 }
 
                 if (candidate.IsGenericType() && nodeMatcherFactories.TryGetValue(candidate.GetGenericTypeDefinition(), out matcherFactory))
                 {
-                    nodeMatcher = matcherFactory(candidate);
+                    nodeMatcher = matcherFactory(type, candidate, t => LookupNodeMatcher(t, type, recursionDetector));
                     return true;
                 }
             }
