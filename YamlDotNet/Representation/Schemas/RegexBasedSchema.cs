@@ -50,11 +50,7 @@ namespace YamlDotNet.Representation.Schemas
         {
             this.tags = tagMappingTable
                 .GroupBy(e => e.Tag)
-                .Select(g => g.Count() switch
-                {
-                    1 => g.First(),
-                    _ => new CompositeRegexBasedTag(g.Key, g.Cast<RegexBasedScalarMapper>())
-                })
+                .Select(g => (IRegexBasedScalarMapper)new CompositeRegexBasedScalarMapper(g.Key, g.Cast<RegexBasedScalarMapper>()))
                 .ToDictionary(e => e.Tag);
 
             this.fallback = fallback;
@@ -196,11 +192,11 @@ namespace YamlDotNet.Representation.Schemas
             public override string ToString() => Tag.ToString();
         }
 
-        private sealed class CompositeRegexBasedTag : CompositeRegexBasedTagComponent
+        private sealed class CompositeRegexBasedScalarMapper : CompositeRegexBasedTagComponent
         {
             private readonly RegexBasedScalarMapper[] subTags;
 
-            public CompositeRegexBasedTag(TagName tag, IEnumerable<RegexBasedScalarMapper> subTags) : base(tag)
+            public CompositeRegexBasedScalarMapper(TagName tag, IEnumerable<RegexBasedScalarMapper> subTags) : base(tag)
             {
                 this.subTags = subTags.ToArray();
             }

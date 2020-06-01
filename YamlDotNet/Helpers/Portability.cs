@@ -487,6 +487,7 @@ namespace System.Runtime.CompilerServices
 
 namespace System // To allow these to be public without clashing with the standard ones on platforms > 2.0
 {
+    public delegate TResult Func<TResult>();
     public delegate TResult Func<TArg, TResult>(TArg arg);
     public delegate TResult Func<TArg1, TArg2, TResult>(TArg1 arg1, TArg2 arg2);
     public delegate TResult Func<TArg1, TArg2, TArg3, TResult>(TArg1 arg1, TArg2 arg2, TArg3 arg3);
@@ -944,6 +945,73 @@ namespace System.Runtime.Versioning
 #endif
 
 #if NET20 || NET35 || UNITY
+namespace System
+{
+    internal sealed class Lazy<T>
+    {
+        private enum ValueState
+        {
+            NotCreated,
+            Creating,
+            Created,
+        }
+
+        private T value;
+        private Func<T>? valueFactory;
+        private ValueState valueState;
+        private readonly bool isThreadSafe;
+
+        public Lazy(T value)
+        {
+            this.value = value;
+            valueState = ValueState.Created;
+        }
+
+        public Lazy(Func<T> valueFactory, bool isThreadSafe)
+        {
+            this.valueFactory = valueFactory;
+            this.isThreadSafe = isThreadSafe;
+            valueState = ValueState.NotCreated;
+            value = default!;
+        }
+
+        public T Value
+        {
+            get
+            {
+                if (isThreadSafe)
+                {
+                    lock (this)
+                    {
+                        return ComputeValue();
+                    }
+                }
+                else
+                {
+                    return ComputeValue();
+                }
+            }
+        }
+
+        private T ComputeValue()
+        {
+            switch (valueState)
+            {
+                case Lazy<T>.ValueState.NotCreated:
+                    valueState = ValueState.Creating;
+                    value = valueFactory();
+                    valueState = ValueState.Created;
+                    valueFactory = null;
+                    break;
+
+                case Lazy<T>.ValueState.Creating:
+                    throw new InvalidOperationException("ValueFactory attempted to access the Value property of this instance.");
+            }
+            return value;
+        }
+    }
+}
+
 namespace System.Linq
 {
     internal static partial class Enumerable2
@@ -978,6 +1046,27 @@ namespace System.Collections.Concurrent
                     entries.Add(key, value);
                 }
                 return value;
+            }
+        }
+
+        public bool TryAdd(TKey key, TValue value)
+        {
+            lock (entries)
+            {
+                if (!entries.ContainsKey(key))
+                {
+                    entries.Add(key, value);
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
+        {
+            lock (entries)
+            {
+                return entries.TryGetValue(key, out value);
             }
         }
     }
@@ -1094,3 +1183,23 @@ namespace System.Collections.Generic
     }
 }
 #endif
+
+namespace YamlDotNet.Helpers
+{
+#if NET45 || NETSTANDARD1_3
+    internal static class Lazy
+    {
+        public static Lazy<T> FromValue<T>(T value)
+        {
+            var lazy = new Lazy<T>(() => value, isThreadSafe: false);
+            var _ = lazy.Value; // Force evaluation
+            return lazy;
+        }
+    }
+#else
+    internal static class Lazy
+    {
+        public static Lazy<T> FromValue<T>(T value) => new Lazy<T>(value);
+    }
+#endif
+}

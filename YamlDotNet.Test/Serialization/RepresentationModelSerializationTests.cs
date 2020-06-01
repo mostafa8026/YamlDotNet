@@ -37,7 +37,7 @@ namespace YamlDotNet.Test.Serialization
         [InlineData("!!int 123", "123")]
         public void ScalarIsSerializable(string yaml, string expectedValue)
         {
-            var deserializer = new Deserializer();
+            var deserializer = new DeserializerBuilder().Build();
             var node = deserializer.Deserialize<YamlScalarNode>(Yaml.ReaderForText(yaml));
 
             Assert.NotNull(node);
@@ -57,7 +57,7 @@ namespace YamlDotNet.Test.Serialization
         [InlineData("!bla [a]", new[] { "a" })]
         public void SequenceIsSerializable(string yaml, string[] expectedValues)
         {
-            var deserializer = new Deserializer();
+            var deserializer = new DeserializerBuilder().Build();
             var node = deserializer.Deserialize<YamlSequenceNode>(Yaml.ReaderForText(yaml));
 
             Assert.NotNull(node);
@@ -80,7 +80,7 @@ namespace YamlDotNet.Test.Serialization
         [InlineData("a: b\r\nc: d", new[] { "a", "b", "c", "d" })]
         public void MappingIsSerializable(string yaml, string[] expectedKeysAndValues)
         {
-            var deserializer = new Deserializer();
+            var deserializer = new DeserializerBuilder().Build();
             var node = deserializer.Deserialize<YamlMappingNode>(Yaml.ReaderForText(yaml));
 
             Assert.NotNull(node);

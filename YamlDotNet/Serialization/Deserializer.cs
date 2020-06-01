@@ -20,22 +20,12 @@
 //  SOFTWARE.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using YamlDotNet.Core;
-using YamlDotNet.Core.Events;
-using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
-using YamlDotNet.Serialization.Converters;
-using YamlDotNet.Serialization.NamingConventions;
-using YamlDotNet.Serialization.NodeDeserializers;
-using YamlDotNet.Serialization.NodeTypeResolvers;
-using YamlDotNet.Serialization.ObjectFactories;
-using YamlDotNet.Serialization.TypeInspectors;
-using YamlDotNet.Serialization.TypeResolvers;
+using YamlDotNet.Serialization.Schemas;
 using YamlDotNet.Serialization.Utilities;
-using YamlDotNet.Serialization.ValueDeserializers;
 
 namespace YamlDotNet.Serialization
 {
@@ -46,36 +36,13 @@ namespace YamlDotNet.Serialization
     /// </summary>
     public sealed class Deserializer : IDeserializer
     {
-        private readonly IValueDeserializer valueDeserializer;
+        private readonly TypeMatcherTable typeMatchers;
+        private readonly ISchema baseSchema;
 
-        /// <summary>
-        /// Initializes a new instance of <see cref="Deserializer" /> using the default configuration.
-        /// </summary>
-        /// <remarks>
-        /// To customize the behavior of the deserializer, use <see cref="DeserializerBuilder" />.
-        /// </remarks>
-        public Deserializer()
-            : this(new DeserializerBuilder().BuildValueDeserializer())
+        internal Deserializer(TypeMatcherTable typeMatchers, ISchema baseSchema)
         {
-        }
-
-        /// <remarks>
-        /// This constructor is private to discourage its use.
-        /// To invoke it, call the <see cref="FromValueDeserializer"/> method.
-        /// </remarks>
-        private Deserializer(IValueDeserializer valueDeserializer)
-        {
-            this.valueDeserializer = valueDeserializer ?? throw new ArgumentNullException(nameof(valueDeserializer));
-        }
-
-        /// <summary>
-        /// Creates a new <see cref="Deserializer" /> that uses the specified <see cref="IValueDeserializer" />.
-        /// This method is available for advanced scenarios. The preferred way to customize the behavior of the
-        /// deserializer is to use <see cref="DeserializerBuilder" />.
-        /// </summary>
-        public static Deserializer FromValueDeserializer(IValueDeserializer valueDeserializer)
-        {
-            return new Deserializer(valueDeserializer);
+            this.typeMatchers = typeMatchers ?? throw new ArgumentNullException(nameof(typeMatchers));
+            this.baseSchema = baseSchema ?? throw new ArgumentNullException(nameof(baseSchema));
         }
 
         public T Deserialize<T>(string input)
@@ -137,72 +104,13 @@ namespace YamlDotNet.Serialization
                 throw new ArgumentNullException(nameof(type));
             }
 
-            var baseSchema = CoreSchema.Instance;
-
-            INodeMapper GetBaseMapper(TagName tag)
-            {
-                return CoreSchema.Instance.ResolveMapper(tag, out var mapper)
-                    ? mapper
-                    : throw new Exception($"Mapper for tag '{tag}' not found.");
-            }
-
-            var integerMapper = GetBaseMapper(YamlTagRepository.Integer);
-            var floatingPointMapper = GetBaseMapper(YamlTagRepository.FloatingPoint);
-            var stringMapper = GetBaseMapper(YamlTagRepository.String);
-
-            var typeMatchers = new TypeMatcherTable
-            {
-                { typeof(sbyte), integerMapper },
-                { typeof(byte), integerMapper },
-                { typeof(short), integerMapper },
-                { typeof(ushort), integerMapper },
-                { typeof(int), integerMapper },
-                { typeof(uint), integerMapper },
-                { typeof(long), integerMapper },
-                { typeof(ulong), integerMapper },
-
-                { typeof(float), floatingPointMapper },
-                { typeof(double), floatingPointMapper },
-                
-                { typeof(string), stringMapper },
-                { typeof(char), stringMapper }, // TODO: Test this
-
-                {
-                    typeof(ICollection<>),
-                    (concrete, iCollection, lookupMatcher) => {
-                        var itemType = iCollection.GetGenericArguments()[0];
-                        return new NodeKindMatcher<INodeMapper>(NodeKind.Sequence, SequenceMapper.Create(concrete, itemType))
-                        {
-                            lookupMatcher(itemType)
-                        };
-                    }
-                },
-                {
-                    typeof(IDictionary<,>),
-                    (concrete, iDictionary, lookupMatcher) => {
-                        var types = iDictionary.GetGenericArguments();
-                        var keyType = types[0];
-                        var valueType = types[1];
-
-                        var keyMapper = lookupMatcher(keyType).Value;
-
-                        return new NodeKindMatcher<INodeMapper>(NodeKind.Mapping, MappingMapper.Create(concrete, keyType, valueType))
-                        {
-                            new NodeKindMatcher<INodeMapper>(keyMapper.MappedNodeKind, keyMapper)
-                            {
-                                lookupMatcher(valueType)
-                            }
-                        };
-                    }
-                },
-            };
-
-            var schema = new TypeSchema(type, CoreSchema.Instance, typeMatchers);
+            var schema = new TypeSchema(type, baseSchema, typeMatchers);
 
             var documents = Representation.Stream.Load(parser, _ => schema);
             var document = documents.First();
 
-            return document.Content.Mapper.Construct(document.Content);
+            var native = document.Content.Mapper.Construct(document.Content);
+            return TypeConverter.ChangeType(native, type);
 
             //var hasStreamStart = parser.TryConsume<StreamStart>(out var _);
 

@@ -25,9 +25,9 @@ using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using YamlDotNet.Core;
-using YamlDotNet.Helpers;
 using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
+using YamlDotNet.Serialization.Schemas;
 
 namespace YamlDotNet.Test.Representation
 {
@@ -50,7 +50,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void X()
         {
-            var tagMappings = new TypeMatcherTable
+            var typeMatchers = new TypeMatcherTable(false)
             {
                 {
                     typeof(int),
@@ -90,7 +90,7 @@ namespace YamlDotNet.Test.Representation
                 },
             };
 
-            var sut = new TypeSchema(typeof(SimpleModel), CoreSchema.Instance, tagMappings);
+            var sut = new TypeSchema(typeof(SimpleModel), CoreSchema.Instance, typeMatchers);
 
             output.WriteLine(sut.ToString());
 

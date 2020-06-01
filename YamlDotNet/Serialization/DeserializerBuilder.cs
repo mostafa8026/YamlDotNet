@@ -21,14 +21,19 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using YamlDotNet.Core;
+using YamlDotNet.Helpers;
+using YamlDotNet.Representation;
+using YamlDotNet.Representation.Schemas;
 using YamlDotNet.Serialization.NamingConventions;
 using YamlDotNet.Serialization.NodeDeserializers;
 using YamlDotNet.Serialization.NodeTypeResolvers;
 using YamlDotNet.Serialization.ObjectFactories;
+using YamlDotNet.Serialization.Schemas;
 using YamlDotNet.Serialization.TypeInspectors;
 using YamlDotNet.Serialization.TypeResolvers;
-using YamlDotNet.Serialization.ValueDeserializers;
 
 namespace YamlDotNet.Serialization
 {
@@ -54,12 +59,12 @@ namespace YamlDotNet.Serialization
         {
             tagMappings = new Dictionary<TagName, Type>
             {
-                { YamlTagRepository.Mapping, typeof(Dictionary<object, object>) },
-                { YamlTagRepository.String, typeof(string) },
-                { YamlTagRepository.Boolean, typeof(bool) },
-                { YamlTagRepository.FloatingPoint, typeof(double) },
-                { YamlTagRepository.Integer, typeof(int) },
-                { YamlTagRepository.Timestamp, typeof(DateTime) }
+                //{ YamlTagRepository.Mapping, typeof(Dictionary<object, object>) },
+                //{ YamlTagRepository.String, typeof(string) },
+                //{ YamlTagRepository.Boolean, typeof(bool) },
+                //{ YamlTagRepository.FloatingPoint, typeof(double) },
+                //{ YamlTagRepository.Integer, typeof(int) },
+                //{ YamlTagRepository.Timestamp, typeof(DateTime) }
             };
 
             typeInspectorFactories.Add(typeof(CachedTypeInspector), inner => new CachedTypeInspector(inner));
@@ -329,20 +334,87 @@ namespace YamlDotNet.Serialization
         /// </summary>
         public IDeserializer Build()
         {
-            return Deserializer.FromValueDeserializer(BuildValueDeserializer());
-        }
+            INodeMapper GetBaseMapper(TagName tag)
+            {
+                return schema.ResolveMapper(tag, out var mapper)
+                    ? mapper
+                    : throw new Exception($"Mapper for tag '{tag}' not found.");
+            }
 
-        /// <summary>
-        /// Creates a new <see cref="IValueDeserializer" /> that implements the current configuration.
-        /// This method is available for advanced scenarios. The preferred way to customize the behavior of the
-        /// deserializer is to use the <see cref="Build" /> method.
-        /// </summary>
-        public IValueDeserializer BuildValueDeserializer()
-        {
-            return new NodeValueDeserializer(
-                nodeDeserializerFactories.BuildComponentList(),
-                nodeTypeResolverFactories.BuildComponentList()
+            var integerMapper = GetBaseMapper(YamlTagRepository.Integer);
+            var floatingPointMapper = GetBaseMapper(YamlTagRepository.FloatingPoint);
+            var stringMapper = GetBaseMapper(YamlTagRepository.String);
+            var booleanMapper = GetBaseMapper(YamlTagRepository.Boolean);
+
+            var tagNameResolver = new CompositeTagNameResolver(
+                new TableTagNameResolver(tagMappings.ToDictionary(p => p.Value, p => p.Key).AsReadonlyDictionary()),
+                TypeNameTagNameResolver.Instance
             );
+
+            var typeMatchers = new TypeMatcherTable(requireThreadSafety: true) // TODO: Configure requireThreadSafety
+            {
+                { typeof(long), integerMapper }, // This is the 'main' one and needs to go first
+                { typeof(sbyte), integerMapper },
+                { typeof(byte), integerMapper },
+                { typeof(short), integerMapper },
+                { typeof(ushort), integerMapper },
+                { typeof(int), integerMapper },
+                { typeof(uint), integerMapper },
+                { typeof(ulong), integerMapper },
+
+                { typeof(double), floatingPointMapper }, // This is the 'main' one and needs to go first
+                { typeof(float), floatingPointMapper },
+
+                { typeof(string), stringMapper }, // This is the 'main' one and needs to go first
+                { typeof(char), stringMapper }, // TODO: Test this
+
+                { typeof(bool), booleanMapper },
+
+                {
+                    typeof(ICollection<>),
+                    (concrete, iCollection, lookupMatcher) =>
+                    {
+                        var itemType = iCollection.GetGenericArguments()[0];
+                        return new NodeKindMatcher<INodeMapper>(NodeKind.Sequence, SequenceMapper.Create(concrete, itemType))
+                        {
+                            lookupMatcher(itemType)
+                        };
+                    }
+                },
+                {
+                    typeof(IDictionary<,>),
+                    (concrete, iDictionary, lookupMatcher) =>
+                    {
+                        var types = iDictionary.GetGenericArguments();
+                        var keyType = types[0];
+                        var valueType = types[1];
+
+                        var keyMapper = lookupMatcher(keyType).Value;
+
+                        return new NodeKindMatcher<INodeMapper>(NodeKind.Mapping, MappingMapper.Create(concrete, keyType, valueType))
+                        {
+                            new NodeKindMatcher<INodeMapper>(keyMapper.MappedNodeKind, keyMapper)
+                            {
+                                lookupMatcher(valueType)
+                            }
+                        };
+                    }
+                },
+                {
+                    typeof(object),
+                    (concrete, _, lookupMatcher) =>
+                    {
+                        if (!tagNameResolver.Resolve(concrete, out var tag))
+                        {
+                            throw new ArgumentException($"Could not resolve a tag for type '{concrete.FullName}'.");
+                        }
+                        var mapper = new ObjectMapper(concrete, tag);
+                        return new NodeKindMatcher<INodeMapper>(mapper.MappedNodeKind, mapper);
+                    }
+                }
+            };
+
+            return new Deserializer(typeMatchers, schema);
         }
     }
 }

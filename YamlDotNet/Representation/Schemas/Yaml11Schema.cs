@@ -20,7 +20,6 @@
 //  SOFTWARE.
 
 using YamlDotNet.Core;
-using YamlDotNet.Helpers;
 
 namespace YamlDotNet.Representation.Schemas
 {
