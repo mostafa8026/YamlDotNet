@@ -100,6 +100,6 @@ namespace YamlDotNet.Core.Events
             return visitor.Visit(this);
         }
 
-        protected override NodeKind Kind => NodeKind.Mapping;
+        public override NodeKind Kind => NodeKind.Mapping;
     }
 }

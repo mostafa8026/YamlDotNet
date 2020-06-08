@@ -20,16 +20,12 @@
 //  SOFTWARE.
 
 using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using YamlDotNet.Core;
-using YamlDotNet.Core.Events;
 using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
-using Scalar = YamlDotNet.Representation.Scalar;
 using Stream = YamlDotNet.Representation.Stream;
 
 namespace YamlDotNet.Test.Representation
@@ -47,7 +43,7 @@ namespace YamlDotNet.Test.Representation
         public void ParseWithoutSchemaProducesNonSpecificTags()
         {
             AssertParseWithSchemaProducesCorrectTags(
-                new NullSchema(),
+                NullSchema,
                 @"
                     - { actual: plain, expected: !? 'plain' }
                     - { actual: 'single quoted', expected: ! 'single quoted' }
@@ -140,24 +136,24 @@ namespace YamlDotNet.Test.Representation
             AssertParseWithSchemaProducesCorrectTags(
                 CoreSchema.Instance,
                 @"
-                    - { actual: null, expected: !!null }
-                    - { actual: Null, expected: !!null }
-                    - { actual: NULL, expected: !!null }
-                    - { actual: ~, expected: !!null }
-                    - { actual: , expected: !!null }
-
-                    - { actual: true, expected: !!bool true }
-                    - { actual: True, expected: !!bool true }
-                    - { actual: TRUE, expected: !!bool true }
-                    - { actual: false, expected: !!bool false }
-                    - { actual: False, expected: !!bool false }
-                    - { actual: FALSE, expected: !!bool false }
-
-                    - { actual: 0, expected: !!int 0 }
-                    - { actual: 13, expected: !!int 13 }
-                    - { actual: -6, expected: !!int -6 }
-                    - { actual: 0o10, expected: !!int 8 }
-                    - { actual: 0x3A, expected: !!int 58 }
+                    #- { actual: null, expected: !!null }
+                    #- { actual: Null, expected: !!null }
+                    #- { actual: NULL, expected: !!null }
+                    #- { actual: ~, expected: !!null }
+                    #- { actual: , expected: !!null }
+                    #
+                    #- { actual: true, expected: !!bool true }
+                    #- { actual: True, expected: !!bool true }
+                    #- { actual: TRUE, expected: !!bool true }
+                    #- { actual: false, expected: !!bool false }
+                    #- { actual: False, expected: !!bool false }
+                    #- { actual: FALSE, expected: !!bool false }
+                    #
+                    #- { actual: 0, expected: !!int 0 }
+                    #- { actual: 13, expected: !!int 13 }
+                    #- { actual: -6, expected: !!int -6 }
+                    #- { actual: 0o10, expected: !!int 8 }
+                    #- { actual: 0x3A, expected: !!int 58 }
 
                     - { actual: 0., expected: !!float 0 }
                     - { actual: -0.0, expected: !!float 0 }
@@ -194,55 +190,7 @@ namespace YamlDotNet.Test.Representation
             }
         }
 
-        private sealed class NullSchema : ISchema
-        {
-            public bool ResolveNonSpecificTag(YamlDotNet.Core.Events.Scalar node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
-            {
-                resolvedTag = null;
-                return false;
-            }
-
-            public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
-            {
-                resolvedTag = null;
-                return false;
-            }
-
-            public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
-            {
-                resolvedTag = null;
-                return false;
-            }
-
-            public bool IsTagImplicit(Scalar node, IEnumerable<INodePathSegment> path, out ScalarStyle style)
-            {
-                style = default;
-                return false;
-            }
-
-            public bool IsTagImplicit(Mapping node, IEnumerable<INodePathSegment> path, out MappingStyle style)
-            {
-                style = default;
-                return false;
-            }
-
-            public bool IsTagImplicit(Sequence node, IEnumerable<INodePathSegment> path, out SequenceStyle style)
-            {
-                style = default;
-                return false;
-            }
-
-            public bool ResolveMapper(TagName tag, [NotNullWhen(true)] out INodeMapper? mapper)
-            {
-                mapper = null;
-                return false;
-            }
-
-            public INodeMapper ResolveChildMapper(object? native, IEnumerable<INodePathSegment> path)
-            {
-                return null; // TODO
-            }
-        }
+        private static readonly ISchema NullSchema = new ContextFreeSchema(Enumerable.Empty<INodeMatcher>());
     }
 }
 

@@ -1,144 +1,145 @@
-﻿//  This file is part of YamlDotNet - A .NET library for YAML.
-//  Copyright (c) Antoine Aubry and contributors
+﻿////  This file is part of YamlDotNet - A .NET library for YAML.
+////  Copyright (c) Antoine Aubry and contributors
 
-//  Permission is hereby granted, free of charge, to any person obtaining a copy of
-//  this software and associated documentation files (the "Software"), to deal in
-//  the Software without restriction, including without limitation the rights to
-//  use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-//  of the Software, and to permit persons to whom the Software is furnished to do
-//  so, subject to the following conditions:
+////  Permission is hereby granted, free of charge, to any person obtaining a copy of
+////  this software and associated documentation files (the "Software"), to deal in
+////  the Software without restriction, including without limitation the rights to
+////  use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+////  of the Software, and to permit persons to whom the Software is furnished to do
+////  so, subject to the following conditions:
 
-//  The above copyright notice and this permission notice shall be included in all
-//  copies or substantial portions of the Software.
+////  The above copyright notice and this permission notice shall be included in all
+////  copies or substantial portions of the Software.
 
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-//  SOFTWARE.
+////  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+////  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+////  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+////  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+////  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+////  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+////  SOFTWARE.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Xunit;
-using Xunit.Abstractions;
-using YamlDotNet.Core;
-using YamlDotNet.Representation;
-using YamlDotNet.Representation.Schemas;
-using YamlDotNet.Serialization.Schemas;
+//using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using Xunit;
+//using Xunit.Abstractions;
+//using YamlDotNet.Core;
+//using YamlDotNet.Representation;
+//using YamlDotNet.Representation.Schemas;
+//using YamlDotNet.Serialization.Schemas;
 
-namespace YamlDotNet.Test.Representation
-{
-    public class TypeSchemaTests
-    {
-        private readonly ITestOutputHelper output;
+//namespace YamlDotNet.Test.Representation
+//{
+//    public class TypeSchemaTests
+//    {
+//        private readonly ITestOutputHelper output;
 
-        public TypeSchemaTests(ITestOutputHelper output)
-        {
-            this.output = output ?? throw new ArgumentNullException(nameof(output));
-        }
+//        public TypeSchemaTests(ITestOutputHelper output)
+//        {
+//            this.output = output ?? throw new ArgumentNullException(nameof(output));
+//        }
 
-        private INodeMapper GetCoreMapper(TagName tag)
-        {
-            return CoreSchema.Instance.ResolveMapper(tag, out var mapper)
-                ? mapper
-                : throw new Exception($"Mapper for tag '{tag}' not found.");
-        }
+//        private INodeMapper GetCoreMapper(TagName tag)
+//        {
+//            return CoreSchema.Instance.ResolveMapper(tag, out var mapper)
+//                ? mapper
+//                : throw new Exception($"Mapper for tag '{tag}' not found.");
+//        }
 
-        [Fact]
-        public void X()
-        {
-            var typeMatchers = new TypeMatcherTable(false)
-            {
-                {
-                    typeof(int),
-                    new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.Integer))
-                },
-                {
-                    typeof(string),
-                    new NodeKindMatcher<INodeMapper>(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.String))
-                },
-                {
-                    typeof(ICollection<>),
-                    (concrete, iCollection, lookupMatcher) => {
-                        var itemType = iCollection.GetGenericArguments()[0];
-                        return new NodeKindMatcher<INodeMapper>(NodeKind.Sequence, SequenceMapper.Default(itemType))
-                        {
-                            lookupMatcher(itemType)
-                        };
-                    }
-                },
-                {
-                    typeof(IDictionary<,>),
-                    (concrete, iDictionary, lookupMatcher) => {
-                        var types = iDictionary.GetGenericArguments();
-                        var keyType = types[0];
-                        var valueType = types[1];
+//        [Fact]
+//        public void X()
+//        {
+//            var typeMatchers = new TypeMatcherTable(false)
+//            {
+//                {
+//                    typeof(int),
+//                    new NodeKindMatcher(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.Integer))
+//                },
+//                {
+//                    typeof(string),
+//                    new NodeKindMatcher(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.String))
+//                },
+//                {
+//                    typeof(ICollection<>),
+//                    (concrete, iCollection, lookupMatcher) => {
+//                        var itemType = iCollection.GetGenericArguments()[0];
+//                        return new NodeKindMatcher(NodeKind.Sequence, SequenceMapper.Default(itemType))
+//                        {
+//                            lookupMatcher(itemType)
+//                        };
+//                    }
+//                },
+//                {
+//                    typeof(IDictionary<,>),
+//                    (concrete, iDictionary, lookupMatcher) => {
+//                        var types = iDictionary.GetGenericArguments();
+//                        var keyType = types[0];
+//                        var valueType = types[1];
 
-                        var keyMapper = lookupMatcher(keyType).Value;
+//                        var keyMapper = lookupMatcher(keyType).Value;
 
-                        return new NodeKindMatcher<INodeMapper>(NodeKind.Mapping, MappingMapper.Default(keyType, valueType))
-                        {
-                            new NodeKindMatcher<INodeMapper>(keyMapper.MappedNodeKind, keyMapper)
-                            {
-                                lookupMatcher(valueType)
-                            }
-                        };
-                    }
-                },
-            };
+//                        return new NodeKindMatcher(NodeKind.Mapping, MappingMapper.Default(keyType, valueType))
+//                        {
+//                            new NodeKindMatcher(keyMapper.MappedNodeKind, keyMapper)
+//                            {
+//                                lookupMatcher(valueType)
+//                            }
+//                        };
+//                    }
+//                },
+//            };
 
-            var sut = new TypeSchema(typeof(SimpleModel), CoreSchema.Instance, typeMatchers);
+//            //var sut = new TypeSchema(typeof(SimpleModel), CoreSchema.Instance, typeMatchers);
+//            //output.WriteLine(sut.ToString());
 
-            output.WriteLine(sut.ToString());
+//            var sut = CoreSchema.Instance;
 
-            var stream = Stream.Load(Yaml.ParserForText(@"
-                Value: 123
-                List: [ 1, 2 ]
-                Dict:
-                    1: one
-                    2: two
-                    3: three
-                RecursiveChild: { Value: 456 }
-                Child: { Name: abc }
-            "), _ => sut);
-            var content = stream.First().Content;
-            var value = content.Mapper.Construct(content);
+//            var stream = Stream.Load(Yaml.ParserForText(@"
+//                Value: 123
+//                List: [ 1, 2 ]
+//                Dict:
+//                    1: one
+//                    2: two
+//                    3: three
+//                RecursiveChild: { Value: 456 }
+//                Child: { Name: abc }
+//            "), _ => sut);
+//            var content = stream.First().Content;
+//            //var value = content.Mapper.Construct(content);
 
-            var model = Assert.IsType<SimpleModel>(value);
-            Assert.Equal(123, model.Value);
-            Assert.Equal(456, model.RecursiveChild!.Value);
+//            //var model = Assert.IsType<SimpleModel>(value);
+//            //Assert.Equal(123, model.Value);
+//            //Assert.Equal(456, model.RecursiveChild!.Value);
 
-            var representation = sut.Represent(model);
-            Assert.Equal(content, representation.Content);
+//            //var representation = sut.Represent(model);
+//            //Assert.Equal(content, representation.Content);
 
-            var yaml = Stream.Dump(new[] { representation });
-            output.WriteLine("=== Dumped YAML ===");
-            output.WriteLine(yaml);
+//            //var yaml = Stream.Dump(new[] { representation });
+//            //output.WriteLine("=== Dumped YAML ===");
+//            //output.WriteLine(yaml);
 
-            yaml = Stream.Dump(new[] { new Document(representation.Content, FailsafeSchema.Strict) });
-            output.WriteLine("=== Dumped YAML ===");
-            output.WriteLine(yaml);
-        }
+//            //yaml = Stream.Dump(new[] { new Document(representation.Content, FailsafeSchema.Strict) });
+//            //output.WriteLine("=== Dumped YAML ===");
+//            //output.WriteLine(yaml);
+//        }
 
-        public class SimpleModel
-        {
-            public int Value { get; set; }
+//        public class SimpleModel
+//        {
+//            public int Value { get; set; }
 
-            public List<int>? List { get; set; }
-            public Dictionary<int, string>? Dict { get; set; }
+//            public List<int>? List { get; set; }
+//            public Dictionary<int, string>? Dict { get; set; }
 
-            // TODO: List<SimpleModelChild>
+//            // TODO: List<SimpleModelChild>
 
-            public SimpleModel? RecursiveChild { get; set; }
-            public SimpleModelChild? Child { get; set; }
-        }
+//            public SimpleModel? RecursiveChild { get; set; }
+//            public SimpleModelChild? Child { get; set; }
+//        }
 
-        public class SimpleModelChild
-        {
-            public string? Name { get; set; }
-        }
-    }
-}
+//        public class SimpleModelChild
+//        {
+//            public string? Name { get; set; }
+//        }
+//    }
+//}

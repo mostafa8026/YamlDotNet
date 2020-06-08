@@ -19,6 +19,7 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
+using System;
 using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation.Schemas
@@ -27,6 +28,7 @@ namespace YamlDotNet.Representation.Schemas
     {
         public TagName Tag { get; }
         public abstract NodeKind MappedNodeKind { get; }
+        public virtual INodeMapper Canonical => this;
 
         protected NodeMapper(TagName tag)
         {
@@ -40,5 +42,40 @@ namespace YamlDotNet.Representation.Schemas
         Node INodeMapper.Represent(object? native, ISchema schema, NodePath currentPath) => Represent((T)native!, schema, currentPath);
 
         public override string ToString() => Tag.ToString();
+    }
+
+    public static class NodeMapper
+    {
+        private sealed class LambdaNodeMapper : INodeMapper
+        {
+            private readonly Func<Node, object?> constructor;
+            private readonly Func<object?, INodeMapper, Node> representer;
+
+            public LambdaNodeMapper(TagName tag, NodeKind mappedNodeKind, Func<Node, object?> constructor, Func<object?, INodeMapper, Node> representer, INodeMapper? canonical)
+            {
+                Tag = tag;
+                MappedNodeKind = mappedNodeKind;
+                this.constructor = constructor ?? throw new ArgumentNullException(nameof(constructor));
+                this.representer = representer ?? throw new ArgumentNullException(nameof(representer));
+                Canonical = canonical ?? this;
+            }
+
+            public TagName Tag { get; }
+            public NodeKind MappedNodeKind { get; }
+            public INodeMapper Canonical { get; }
+
+            public object? Construct(Node node) => constructor(node);
+            public Node Represent(object? native, ISchema schema, NodePath currentPath) => representer(native, this);
+        }
+
+        public static INodeMapper CreateScalarMapper(TagName tag, Func<Scalar, object?> constructor, Func<object?, string> representer, INodeMapper? canonical = null)
+        {
+            return CreateScalarMapper(tag, constructor, (n, m) => new Scalar(m, representer(n)), canonical);
+        }
+
+        public static INodeMapper CreateScalarMapper(TagName tag, Func<Scalar, object?> constructor, Func<object?, INodeMapper, Node> representer, INodeMapper? canonical = null)
+        {
+            return new LambdaNodeMapper(tag, NodeKind.Scalar, n => constructor(n.Expect<Scalar>()), representer, canonical);
+        }
     }
 }

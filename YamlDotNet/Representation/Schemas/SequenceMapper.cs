@@ -89,9 +89,10 @@ namespace YamlDotNet.Representation.Schemas
                 var path = currentPath.GetCurrentPath();
                 foreach (var item in native)
                 {
-                    var mapper = schema.ResolveChildMapper(item, path);
-                    var childNode = mapper.Represent(item, schema, currentPath);
-                    items.Add(childNode);
+                    throw new NotImplementedException("TODO");
+                    //var mapper = schema.ResolveChildMapper(item, path);
+                    //var childNode = mapper.Represent(item, schema, currentPath);
+                    //items.Add(childNode);
                 }
             }
 

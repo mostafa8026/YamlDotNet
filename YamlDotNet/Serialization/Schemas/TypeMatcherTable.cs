@@ -30,11 +30,11 @@ using YamlDotNet.Representation.Schemas;
 
 namespace YamlDotNet.Serialization.Schemas
 {
-    public delegate INodeMatcher<INodeMapper> NodeMatcherFactory(Type sourceType, Type matchedType, Func<Type, INodeMatcher<INodeMapper>> nodeMapperLookup);
+    public delegate INodeMatcher NodeMatcherFactory(Type sourceType, Type matchedType, Func<Type, INodeMatcher> nodeMapperLookup);
 
     public sealed class TypeMatcherTable : IEnumerable
     {
-        private readonly ICache<Type, INodeMatcher<INodeMapper>> nodeMatchersByType;
+        private readonly ICache<Type, INodeMatcher> nodeMatchersByType;
         private readonly ICache<TagName, INodeMapper> nodeMappersByTag;
         private readonly IDictionary<Type, NodeMatcherFactory> nodeMatcherFactories = new Dictionary<Type, NodeMatcherFactory>();
 
@@ -42,25 +42,25 @@ namespace YamlDotNet.Serialization.Schemas
         {
             if (requireThreadSafety)
             {
-                nodeMatchersByType = new ThreadSafeCache<Type, INodeMatcher<INodeMapper>>();
+                nodeMatchersByType = new ThreadSafeCache<Type, INodeMatcher>();
                 nodeMappersByTag = new ThreadSafeCache<TagName, INodeMapper>();
             }
             else
             {
-                nodeMatchersByType = new SingleThreadCache<Type, INodeMatcher<INodeMapper>>();
+                nodeMatchersByType = new SingleThreadCache<Type, INodeMatcher>();
                 nodeMappersByTag = new SingleThreadCache<TagName, INodeMapper>();
             }
         }
 
         public void Add(Type type, INodeMapper nodeMapper)
         {
-            Add(type, new NodeKindMatcher<INodeMapper>(nodeMapper.MappedNodeKind, nodeMapper));
+            Add(type, new NodeKindMatcher(nodeMapper));
         }
 
-        public void Add(Type type, INodeMatcher<INodeMapper> nodeMatcher)
+        public void Add(Type type, INodeMatcher nodeMatcher)
         {
             nodeMatchersByType.Add(type, nodeMatcher);
-            nodeMappersByTag.GetOrAdd(nodeMatcher.Value.Tag, () => nodeMatcher.Value);
+            nodeMappersByTag.GetOrAdd(nodeMatcher.Mapper.Tag, () => nodeMatcher.Mapper);
         }
 
         public void Add(Type type, NodeMatcherFactory nodeMatcherFactory)
@@ -70,7 +70,7 @@ namespace YamlDotNet.Serialization.Schemas
 
         IEnumerator IEnumerable.GetEnumerator() => throw new NotSupportedException("This class implements IEnumerable only to allow collection initialization.");
 
-        public INodeMatcher<INodeMapper> GetNodeMatcher(Type type)
+        public INodeMatcher GetNodeMatcher(Type type)
         {
             if (type.IsGenericParameter)
             {
@@ -92,14 +92,14 @@ namespace YamlDotNet.Serialization.Schemas
                     if (nodeMatcherFactories.TryGetValue(candidate, out var concreteMatcherFactory))
                     {
                         var nodeMatcher = concreteMatcherFactory(type, candidate, GetNodeMatcher);
-                        nodeMappersByTag.GetOrAdd(nodeMatcher.Value.Tag, () => nodeMatcher.Value);
+                        nodeMappersByTag.GetOrAdd(nodeMatcher.Mapper.Tag, () => nodeMatcher.Mapper);
                         return nodeMatcher;
                     }
 
                     if (candidate.IsGenericType() && nodeMatcherFactories.TryGetValue(candidate.GetGenericTypeDefinition(), out var genericMatcherFactory))
                     {
                         var nodeMatcher = genericMatcherFactory(type, candidate, GetNodeMatcher);
-                        nodeMappersByTag.GetOrAdd(nodeMatcher.Value.Tag, () => nodeMatcher.Value);
+                        nodeMappersByTag.GetOrAdd(nodeMatcher.Mapper.Tag, () => nodeMatcher.Mapper);
                         return nodeMatcher;
                     }
                 }

@@ -20,87 +20,39 @@
 //  SOFTWARE.
 
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
-using YamlDotNet.Core.Events;
-using Events = YamlDotNet.Core.Events;
 
 namespace YamlDotNet.Representation.Schemas
 {
     /// <summary>
     /// Implements the Failsafe schema: <see href="https://yaml.org/spec/1.2/spec.html#id2802346"/>.
     /// </summary>
-    public sealed class FailsafeSchema : ISchema
+    public static class FailsafeSchema
     {
-        private readonly bool strict;
-
-        private FailsafeSchema(bool strict)
-        {
-            this.strict = strict;
-        }
-
         /// <summary>
         /// A version of the <see cref="FailsafeSchema"/> that conforms strictly to the specification
         /// by not resolving any unrecognized scalars.
         /// </summary>
-        public static readonly FailsafeSchema Strict = new FailsafeSchema(true);
+        public static readonly ISchema Strict = new ContextFreeSchema(CreateMatchers(true));
 
         /// <summary>
         /// A version of the <see cref="FailsafeSchema"/> that treats unrecognized scalars as strings.
         /// </summary>
-        public static readonly FailsafeSchema Lenient = new FailsafeSchema(false);
+        public static readonly ISchema Lenient = new ContextFreeSchema(CreateMatchers(false));
 
-        public bool ResolveNonSpecificTag(Events.Scalar node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
+        private static IEnumerable<INodeMatcher> CreateMatchers(bool strict)
         {
-            if (node.Tag.IsEmpty && strict)
+            yield return new NonSpecificTagMatcher(SequenceMapper<object>.Default);
+            yield return new NonSpecificTagMatcher(MappingMapper<object, object>.Default);
+
+            if (strict)
             {
-                resolvedTag = null;
-                return false;
+                yield return new TagMatcher(TagName.NonSpecific, StringMapper.Default);
             }
-
-            resolvedTag = StringMapper.Default;
-            return true;
-        }
-
-        public bool ResolveNonSpecificTag(MappingStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
-        {
-            resolvedTag = MappingMapper<object, object>.Default;
-            return true;
-        }
-
-        public bool ResolveNonSpecificTag(SequenceStart node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag)
-        {
-            resolvedTag = SequenceMapper<object>.Default;
-            return true;
-        }
-
-        public bool ResolveMapper(TagName tag, [NotNullWhen(true)] out INodeMapper? resolvedTag)
-        {
-            resolvedTag = StringMapper.Default;
-            return tag.Equals(resolvedTag.Tag);
-        }
-
-        public bool IsTagImplicit(Scalar node, IEnumerable<INodePathSegment> path, out ScalarStyle style)
-        {
-            style = ScalarStyle.Any;
-            return node.Tag.Equals(YamlTagRepository.String);
-        }
-
-        public bool IsTagImplicit(Mapping node, IEnumerable<INodePathSegment> path, out MappingStyle style)
-        {
-            style = MappingStyle.Any;
-            return node.Tag.Equals(YamlTagRepository.Mapping);
-        }
-
-        public bool IsTagImplicit(Sequence node, IEnumerable<INodePathSegment> path, out SequenceStyle style)
-        {
-            style = SequenceStyle.Any;
-            return node.Tag.Equals(YamlTagRepository.Sequence);
-        }
-
-        public INodeMapper ResolveChildMapper(object? native, IEnumerable<INodePathSegment> path)
-        {
-            throw new System.NotImplementedException();
+            else
+            {
+                yield return new NonSpecificTagMatcher(StringMapper.Default);
+            }
         }
     }
 }

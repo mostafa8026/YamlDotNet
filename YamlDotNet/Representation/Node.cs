@@ -20,6 +20,7 @@
 //  SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
 using YamlDotNet.Serialization;
@@ -43,9 +44,9 @@ namespace YamlDotNet.Representation
         public Mark Start { get; }
         public Mark End { get; }
 
-        string INodePathSegment.Value => throw new InvalidOperationException("The current node is not a scalar.");
+        public abstract IEnumerable<Node> Children { get; }
 
-        public abstract T Accept<T>(INodeVisitor<T> visitor);
+        string INodePathSegment.Value => throw new InvalidOperationException("The current node is not a scalar.");
 
         public TNode Expect<TNode>() where TNode : Node
         {

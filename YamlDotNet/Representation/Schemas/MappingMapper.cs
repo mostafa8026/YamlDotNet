@@ -77,20 +77,21 @@ namespace YamlDotNet.Representation.Schemas
 
             using (currentPath.Push(mapping))
             {
-                var basePath = currentPath.GetCurrentPath();
-                foreach (var (key, value) in native)
-                {
-                    var keyMapper = schema.ResolveChildMapper(key, basePath);
-                    var keyNode = keyMapper.Represent(key, schema, currentPath);
+                throw new NotImplementedException("TODO");
+                //var basePath = currentPath.GetCurrentPath();
+                //foreach (var (key, value) in native)
+                //{
+                //    var keyMapper = schema.ResolveChildMapper(key, basePath);
+                //    var keyNode = keyMapper.Represent(key, schema, currentPath);
 
-                    using (currentPath.Push(keyNode))
-                    {
-                        var valueMapper = schema.ResolveChildMapper(value, currentPath.GetCurrentPath());
-                        var valueNode = valueMapper.Represent(value, schema, currentPath);
+                //    using (currentPath.Push(keyNode))
+                //    {
+                //        var valueMapper = schema.ResolveChildMapper(value, currentPath.GetCurrentPath());
+                //        var valueNode = valueMapper.Represent(value, schema, currentPath);
 
-                        items.Add(keyNode, valueNode);
-                    }
-                }
+                //        items.Add(keyNode, valueNode);
+                //    }
+                //}
             }
 
             return mapping;

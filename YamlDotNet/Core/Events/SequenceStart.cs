@@ -97,6 +97,6 @@ namespace YamlDotNet.Core.Events
             return visitor.Visit(this);
         }
 
-        protected override NodeKind Kind => NodeKind.Sequence;
+        public override NodeKind Kind => NodeKind.Sequence;
     }
 }

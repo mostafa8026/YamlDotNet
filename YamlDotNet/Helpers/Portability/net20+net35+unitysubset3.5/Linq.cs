@@ -19,12 +19,20 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-namespace YamlDotNet.Representation
+using System.Collections.Generic;
+
+namespace System.Linq
 {
-    public interface INodeVisitor<T>
+    internal static partial class Enumerable2
     {
-        T Visit(Scalar scalar);
-        T Visit(Sequence sequence);
-        T Visit(Mapping mapping);
+        public static IEnumerable<TResult> Zip<TFirst, TSecond, TResult>(this IEnumerable<TFirst> first, IEnumerable<TSecond> second, Func<TFirst, TSecond, TResult> resultSelector)
+        {
+            using var firstEnumerator = first.GetEnumerator();
+            using var secondEnumerator = second.GetEnumerator();
+            while (firstEnumerator.MoveNext() && secondEnumerator.MoveNext())
+            {
+                yield return resultSelector(firstEnumerator.Current, secondEnumerator.Current);
+            }
+        }
     }
 }

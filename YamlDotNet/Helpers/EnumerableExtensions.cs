@@ -25,8 +25,129 @@ using System.Collections.Generic;
 
 namespace YamlDotNet.Helpers
 {
-    public static class EnumerableExtensions
+    internal static class EnumerableExtensions
     {
+        /// <summary>
+        /// Wraps an <see cref="IEnumerable{T}" /> to ensure that it will only be enumerated once,
+        /// even if the returned <see cref="IEnumerable{T}" /> is enumerated multiple times.
+        /// This is achieved by caching the results as they are consumed from the inner sequence.
+        /// </summary>
+        /// <remarks>
+        /// The inner enumerator is disposed only when its end is reached.
+        /// If it is never enumerated to the end, it will never be disposed.
+        /// </remarks>
+        public static IEnumerable<T> Buffer<T>(this IEnumerable<T> sequence)
+        {
+            return new BufferedEnumerable<T>(sequence);
+        }
+
+        private sealed class BufferedEnumerable<T> : IEnumerable<T>
+        {
+            private readonly List<T> buffer = new List<T>();
+            private bool isComplete;
+            private IEnumerable<T>? sequence;
+            private IEnumerator<T>? enumerator;
+            private Exception? exception;
+
+            public BufferedEnumerable(IEnumerable<T> sequence)
+            {
+                this.sequence = sequence;
+            }
+
+            public IEnumerator<T> GetEnumerator()
+            {
+                lock (buffer)
+                {
+                    if (isComplete)
+                    {
+                        return buffer.GetEnumerator();
+                    }
+
+                    if (enumerator == null && exception == null)
+                    {
+                        enumerator = sequence!.GetEnumerator();
+                        sequence = null;
+                    }
+                    return new BufferedEnumerator(this);
+                }
+            }
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+            private bool EnumeratorMoveNext(ref int currentIndex)
+            {
+                lock (buffer)
+                {
+                    if (currentIndex + 1 < buffer.Count)
+                    {
+                        ++currentIndex;
+                        return true;
+                    }
+
+                    if (!isComplete)
+                    {
+                        if (exception != null)
+                        {
+                            throw exception;
+                        }
+
+                        bool hasNext;
+                        try
+                        {
+                            hasNext = enumerator!.MoveNext();
+                        }
+                        catch (Exception ex)
+                        {
+                            exception = ex;
+                            enumerator!.Dispose();
+                            enumerator = null;
+                            throw;
+                        }
+
+                        if (hasNext)
+                        {
+                            buffer.Add(enumerator.Current);
+                            ++currentIndex;
+                            return true;
+                        }
+
+                        isComplete = true;
+                        enumerator.Dispose();
+                        enumerator = null;
+                    }
+
+                    return false;
+                }
+            }
+
+            private sealed class BufferedEnumerator : IEnumerator<T>
+            {
+                private readonly BufferedEnumerable<T> owner;
+                private int currentIndex;
+
+                public BufferedEnumerator(BufferedEnumerable<T> owner)
+                {
+                    this.owner = owner;
+                    currentIndex = -1;
+                }
+
+                public T Current => owner.buffer[currentIndex];
+                object? IEnumerator.Current => Current;
+
+                public void Dispose() { }
+
+                public bool MoveNext()
+                {
+                    return owner.EnumeratorMoveNext(ref currentIndex);
+                }
+
+                public void Reset()
+                {
+                    currentIndex = 0;
+                }
+            }
+        }
+
         /// <summary>
         /// Wraps an <see cref="IEnumerable{T}" /> to ensure that it can only be enumerated once.
         /// </summary>

@@ -195,10 +195,11 @@ namespace YamlDotNet.Test.Spec
             Stream.Dump(new Emitter(buffer), new[] { new Document(dumpedScalar, schema) }, explicitSeparators: true);
             var emittedYaml = buffer.ToString();
 
-            if (schema is JsonSchema)
-            {
-                dumpedYaml = dumpedYaml.Replace('\'', '"');
-            }
+            // TODO
+            //if (schema is JsonSchema)
+            //{
+            //    dumpedYaml = dumpedYaml.Replace('\'', '"');
+            //}
             Assert.Equal("--- " + dumpedYaml + Environment.NewLine + "..." + Environment.NewLine, emittedYaml);
         }
     }

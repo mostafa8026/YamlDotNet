@@ -20,25 +20,31 @@
 //  SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using YamlDotNet.Core;
-using YamlDotNet.Core.Events;
-using YamlDotNet.Helpers;
 
 namespace YamlDotNet.Representation.Schemas
 {
+
     /// <summary>
     /// Implements the JSON schema: <see href="https://yaml.org/spec/1.2/spec.html#id2803231"/>.
     /// </summary>
-    public sealed class JsonSchema : RegexBasedSchema
+    public static class JsonSchema
     {
-        internal static readonly NumberFormatInfo NumberFormat = new NumberFormatInfo
+        /// <summary>
+        /// A version of the <see cref="JsonSchema"/> that conforms strictly to the specification
+        /// by not resolving any unrecognized scalars.
+        /// </summary>
+        public static readonly ISchema Strict = new CompositeSchema(new ContextFreeSchema(CreateMatchers()), FailsafeSchema.Strict);
+
+        /// <summary>
+        /// A version of the <see cref="JsonSchema"/> that treats unrecognized scalars as strings.
+        /// </summary>
+        public static readonly ISchema Lenient = new CompositeSchema(new ContextFreeSchema(CreateMatchers()), FailsafeSchema.Lenient);
+        
+        private static readonly NumberFormatInfo NumberFormat = new NumberFormatInfo
         {
-            //CurrencyDecimalSeparator = ".",
-            //CurrencyGroupSeparator = "_",
-            //CurrencyGroupSizes = new[] { 3 },
-            //CurrencySymbol = string.Empty,
-            //CurrencyDecimalDigits = 99,
             NumberDecimalSeparator = ".",
             NumberGroupSeparator = "_",
             NumberGroupSizes = new[] { 3 },
@@ -50,47 +56,49 @@ namespace YamlDotNet.Representation.Schemas
             NegativeInfinitySymbol = "-.inf",
         };
 
-        private JsonSchema(INodeMapper? fallbackTag) : base(BuildMappingTable(), fallbackTag, ScalarStyle.DoubleQuoted, SequenceStyle.Flow, MappingStyle.Flow) { }
+        // TODO: Node styles
+            //: base(BuildMappingTable(), fallbackTag, ScalarStyle.DoubleQuoted, SequenceStyle.Flow, MappingStyle.Flow) { }
 
-        /// <summary>
-        /// A version of the <see cref="JsonSchema"/> that conforms strictly to the specification
-        /// by not resolving any unrecognized scalars.
-        /// </summary>
-        public static readonly JsonSchema Strict = new JsonSchema(null);
-
-        /// <summary>
-        /// A version of the <see cref="JsonSchema"/> that treats unrecognized scalars as strings.
-        /// </summary>
-        public static readonly JsonSchema Lenient = new JsonSchema(StringMapper.Default);
-
-        private static RegexTagMappingTable BuildMappingTable() => new RegexTagMappingTable
+        private static IEnumerable<INodeMatcher> CreateMatchers()
         {
-            {
+            yield return new RegexMatcher(
                 "^null$",
-                YamlTagRepository.Null,
-                s => null,
-                _ => "null"
-            },
-            {
+                NodeMapper.CreateScalarMapper(
+                    YamlTagRepository.Null,
+                    _ => null,
+                    _ => "null"
+                )
+            );
+
+            yield return new RegexMatcher(
                 "^(true|false)$",
-                YamlTagRepository.Boolean,
-                // Assumes that the value matches the regex
-                s => s.Value[0] == 't',
-                FormatBoolean
-            },
-            {
+                NodeMapper.CreateScalarMapper(
+                    YamlTagRepository.Boolean,
+                    s => s.Value[0] == 't', // Assumes that the value matches the regex
+                    FormatBoolean
+                )
+            );
+
+            yield return new RegexMatcher(
                 "^-?(0|[1-9][0-9]*)$",
-                YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase10(s.Value),
-                FormatInteger
-            },
-            {
+                NodeMapper.CreateScalarMapper(
+                    YamlTagRepository.Integer,
+                    s => IntegerParser.ParseBase10(s.Value),
+                    FormatInteger
+                )
+            );
+
+            yield return new RegexMatcher(
                 @"^-?(0|[1-9][0-9]*)(\.[0-9]*)?([eE][-+]?[0-9]+)?$",
-                YamlTagRepository.FloatingPoint,
-                s => FloatingPointParser.ParseBase10Unseparated(s.Value),
-                FormatFloatingPoint
-            }
-        };
+                NodeMapper.CreateScalarMapper(
+                    YamlTagRepository.FloatingPoint,
+                    s => FloatingPointParser.ParseBase10Unseparated(s.Value),
+                    FormatInteger
+                )
+            );
+
+            //yield return new RegexMatcher()
+        }
 
         internal static string FormatBoolean(object? native)
         {

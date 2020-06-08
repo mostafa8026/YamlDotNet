@@ -60,5 +60,16 @@ namespace YamlDotNet.Representation
         /// according to this <see cref="Tag"/>'s rules.
         /// </returns>
         Node Represent(object? native, ISchema schema, NodePath currentPath);
+
+        /// <summary>
+        /// Gets the canonical version of this <see cref="INodeMapper" />.
+        /// </summary>
+        /// <remarks>
+        /// Some <see cref="INodeMapper" /> offer specializations that construct and represent a specific
+        /// format, out of the various formats defined by the schema. In such cases, this property should
+        /// return an <see cref="INodeMapper" /> that recognizes all formats on construction,
+        /// and uses the canonical form as representation.
+        /// </remarks>
+        INodeMapper Canonical { get; }
     }
 }

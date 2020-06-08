@@ -118,7 +118,7 @@ namespace YamlDotNet.Core.Events
             return visitor.Visit(this);
         }
 
-        protected override NodeKind Kind => NodeKind.Scalar;
+        public override NodeKind Kind => NodeKind.Scalar;
         string INodePathSegment.Value => Value;
     }
 }

@@ -20,7 +20,9 @@
 //  SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using YamlDotNet.Core;
 using HashCode = YamlDotNet.Core.HashCode;
 
@@ -41,10 +43,9 @@ namespace YamlDotNet.Representation
         }
 
         public override NodeKind Kind => NodeKind.Scalar;
+        public override IEnumerable<Node> Children => Enumerable.Empty<Node>();
 
         string INodePathSegment.Value => Value;
-
-        public override T Accept<T>(INodeVisitor<T> visitor) => visitor.Visit(this);
 
         public override bool Equals([AllowNull] Node other)
         {

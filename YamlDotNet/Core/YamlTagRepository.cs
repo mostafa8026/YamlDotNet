@@ -74,10 +74,6 @@ namespace YamlDotNet.Core
         /// <see href="https://yaml.org/type/bool.html"/>
         /// </summary>
         public static readonly TagName Boolean = Prefix + "bool";
-        //public static class Boolean
-        //{
-        //    public static readonly TagName Yaml12 = Prefix + "bool", true, s => bool.Parse(s.Value));
-
 
         /// <summary>
         /// <see href="https://yaml.org/spec/1.2/spec.html#id2803828"/>

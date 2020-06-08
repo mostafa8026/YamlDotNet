@@ -43,6 +43,17 @@ namespace YamlDotNet.Representation
         }
 
         public override NodeKind Kind => NodeKind.Mapping;
+        public override IEnumerable<Node> Children
+        {
+            get
+            {
+                foreach(var (key, value) in items)
+                {
+                    yield return key;
+                    yield return value;
+                }
+            }
+        }
 
         public Node this[string key]
         {
@@ -88,8 +99,6 @@ namespace YamlDotNet.Representation
 
         public IEnumerator<KeyValuePair<Node, Node>> GetEnumerator() => this.items.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-        public override T Accept<T>(INodeVisitor<T> visitor) => visitor.Visit(this);
 
         public override bool Equals([AllowNull] Node other)
         {

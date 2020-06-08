@@ -62,8 +62,7 @@ namespace YamlDotNet.Core.Events
         {
         }
 
-        NodeKind INodePathSegment.Kind => Kind;
-        protected abstract NodeKind Kind { get; }
+        public abstract NodeKind Kind { get; }
         string INodePathSegment.Value => throw new InvalidOperationException("The current node is not a scalar.");
     }
 }

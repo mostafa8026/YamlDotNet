@@ -36,7 +36,12 @@ namespace YamlDotNet.Serialization
     public abstract class BuilderSkeleton<TBuilder>
         where TBuilder : BuilderSkeleton<TBuilder>
     {
-        internal ISchema schema = CoreSchema.Instance;
+        internal ISchema schema = null!; // TODO
+        /*new CompositeSchema(
+            DotNetSchema.Instance,
+            CoreSchema.Instance
+        );*/
+
         internal INamingConvention namingConvention = NullNamingConvention.Instance;
         internal ITypeResolver typeResolver;
         internal readonly YamlAttributeOverrides overrides;

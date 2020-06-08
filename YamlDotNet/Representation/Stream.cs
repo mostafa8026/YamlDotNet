@@ -28,6 +28,7 @@ using YamlDotNet.Core.Events;
 using YamlDotNet.Helpers;
 using YamlDotNet.Representation.Schemas;
 using Events = YamlDotNet.Core.Events;
+using ScalarEvent = YamlDotNet.Core.Events.Scalar;
 
 namespace YamlDotNet.Representation
 {
@@ -47,16 +48,22 @@ namespace YamlDotNet.Representation
                 while (parser.TryConsume<DocumentStart>(out var documentStart))
                 {
                     var schema = schemaSelector(documentStart);
-                    var loader = new NodeLoader(parser, schema);
-                    var content = parser.Consume<NodeEvent>();
-                    var node = content.Accept(loader);
+
+                    var loader = new NodeLoader(parser);
+                    var node = loader.LoadNode(schema.Root, out _);
+
+                    //var content = parser.Consume<NodeEvent>();
+                    //var node = content.Accept(loader);
+
+
+
                     parser.Consume<DocumentEnd>();
                     yield return new Document(node, schema);
                 }
                 parser.Consume<StreamEnd>();
             }
 
-            return LoadDocuments(parser, schemaSelector).SingleUse();
+            return LoadDocuments(parser, schemaSelector).Buffer();
         }
 
         public static string Dump(IEnumerable<Document> stream, bool explicitSeparators = false)
@@ -74,31 +81,54 @@ namespace YamlDotNet.Representation
                 emitter.Emit(new DocumentStart(null, null, isImplicit: !explicitSeparators));
 
                 var count = 0;
-                var anchorAssigner = new AnchorAssigner(_ => $"n{count++}");
-                document.Content.Accept(anchorAssigner);
-
-                var dumper = new NodeDumper(emitter, document.Schema, anchorAssigner.GetAssignedAnchors());
-                document.Content.Accept(dumper);
+                var anchors = AssignAnchors(document.Content, _ => $"n{count++}");
+                var dumper = new NodeDumper(emitter, anchors);
+                dumper.Dump(document.Content, document.Schema.Root, out _);
 
                 emitter.Emit(new DocumentEnd(isImplicit: !explicitSeparators));
             }
             emitter.Emit(new StreamEnd());
         }
 
-        private sealed class NodeLoader : IParsingEventVisitor<Node>
+        private sealed class NodeLoader
         {
             private readonly Dictionary<AnchorName, Node> anchoredNodes = new Dictionary<AnchorName, Node>();
-            private readonly NodePath currentPath = new NodePath();
             private readonly IParser parser;
-            private readonly ISchema schema;
 
-            public NodeLoader(IParser parser, ISchema schema)
+            public NodeLoader(IParser parser)
             {
                 this.parser = parser ?? throw new ArgumentNullException(nameof(parser));
-                this.schema = schema ?? throw new ArgumentNullException(nameof(schema));
             }
 
-            public Node Visit(AnchorAlias anchorAlias)
+            public Node LoadNode(ISchemaIterator iterator, out ISchemaIterator? childIterator)
+            {
+                if (parser.TryConsume<AnchorAlias>(out var anchorAlias))
+                {
+                    childIterator = null;
+                    return LoadAlias(anchorAlias);
+                }
+                else if (parser.TryConsume<ScalarEvent>(out var scalar))
+                {
+                    childIterator = iterator.EnterScalar(scalar.Tag, scalar.Value);
+                    return LoadScalar(scalar, childIterator);
+                }
+                else if (parser.TryConsume<SequenceStart>(out var sequenceStart))
+                {
+                    childIterator = iterator.EnterSequence(sequenceStart.Tag);
+                    return LoadSequence(sequenceStart, childIterator);
+                }
+                else if (parser.TryConsume<MappingStart>(out var mappingStart))
+                {
+                    childIterator = iterator.EnterMapping(mappingStart.Tag);
+                    return LoadMapping(mappingStart, childIterator);
+                }
+                else
+                {
+                    throw new SemanticErrorException(parser.Current!.Start, parser.Current!.End, $"Found an unexpected event '{parser.Current!.Type}'.");
+                }
+            }
+
+            private Node LoadAlias(AnchorAlias anchorAlias)
             {
                 if (anchoredNodes.TryGetValue(anchorAlias.Value, out var node))
                 {
@@ -107,265 +137,176 @@ namespace YamlDotNet.Representation
                 throw new AnchorNotFoundException(anchorAlias.Start, anchorAlias.End, $"Anchor '{anchorAlias.Value}' not found.");
             }
 
-            private Exception UnexpectedEvent(ParsingEvent parsingEvent)
+            private Node LoadScalar(ScalarEvent scalar, ISchemaIterator iterator)
             {
-                return new SemanticErrorException(parsingEvent.Start, parsingEvent.End, $"Found an unexpected event '{parsingEvent.Type}'.");
+                var mapper = iterator.ResolveMapper(scalar);
+                var node = new Scalar(mapper, scalar.Value);
+                AddAnchoredNode(scalar.Anchor, node);
+                return node;
             }
 
-            public Node Visit(Events.Scalar scalar)
+            private Node LoadSequence(SequenceStart sequenceStart, ISchemaIterator iterator)
             {
-                using (currentPath.Push(scalar))
+                var mapper = iterator.ResolveMapper(sequenceStart);
+
+                var items = new List<Node>();
+
+                // Notice that the items collection will still be mutated after constructing the Sequence object.
+                // We need to create it now in order to support recursive anchors.
+                var sequence = new Sequence(mapper, items.AsReadonlyList());
+                AddAnchoredNode(sequenceStart.Anchor, sequence);
+
+                while (!parser.TryConsume<SequenceEnd>(out _))
                 {
-                    var mapper = ResolveNode(scalar, schema.ResolveNonSpecificTag);
-                    var node = new Scalar(mapper, scalar.Value);
-                    AddAnchoredNode(scalar.Anchor, node);
-                    return node;
+                    var child = LoadNode(iterator, out _);
+                    items.Add(child);
                 }
+
+                return sequence;
             }
 
-            public Node Visit(SequenceStart sequenceStart)
+            private Node LoadMapping(MappingStart mappingStart, ISchemaIterator iterator)
             {
-                using (currentPath.Push(sequenceStart))
+                var mapper = iterator.ResolveMapper(mappingStart);
+                var items = new Dictionary<Node, Node>();
+
+                // Notice that the items collection will still be mutated after constructing the Sequence object.
+                // We need to create it now in order to support recursive anchors.
+                var mapping = new Mapping(mapper, items.AsReadonlyDictionary());
+                AddAnchoredNode(mappingStart.Anchor, mapping);
+
+                while (!parser.TryConsume<MappingEnd>(out _))
                 {
-                    var mapper = ResolveNode(sequenceStart, schema.ResolveNonSpecificTag);
+                    var key = LoadNode(iterator, out var keyIterator);
 
-                    var items = new List<Node>();
-
-                    // Notice that the items collection will still be mutated after constructing the Sequence object.
-                    // We need to create it now in order to support recursive anchors.
-                    var sequence = new Sequence(mapper, items.AsReadonlyList());
-                    AddAnchoredNode(sequenceStart.Anchor, sequence);
-
-                    while (!parser.TryConsume<SequenceEnd>(out _))
+                    // keyIterator is null when the node came from an alias.
+                    // In that case, we need to enter it. This not done at LoadNode level because we don't always want that.
+                    if (keyIterator == null)
                     {
-                        var nodeEvent = parser.Consume<ParsingEvent>();
-                        var child = nodeEvent.Accept(this);
-                        items.Add(child);
-                    }
-
-                    return sequence;
-                }
-            }
-
-            public Node Visit(MappingStart mappingStart)
-            {
-                using (currentPath.Push(mappingStart))
-                {
-                    var mapper = ResolveNode(mappingStart, schema.ResolveNonSpecificTag);
-                    var items = new Dictionary<Node, Node>();
-
-                    // Notice that the items collection will still be mutated after constructing the Sequence object.
-                    // We need to create it now in order to support recursive anchors.
-                    var mapping = new Mapping(mapper, items.AsReadonlyDictionary());
-                    AddAnchoredNode(mappingStart.Anchor, mapping);
-
-                    while (!parser.TryConsume<MappingEnd>(out _))
-                    {
-                        var keyEvent = parser.Consume<ParsingEvent>();
-                        var key = keyEvent.Accept(this);
-
-                        using (currentPath.Push(key))
+                        keyIterator = key switch
                         {
-                            var valueEvent = parser.Consume<ParsingEvent>();
-                            var value = valueEvent.Accept(this);
-                            items.Add(key, value);
-                        }
+                            Scalar keyScalar => iterator.EnterScalar(keyScalar.Tag, keyScalar.Value),
+                            Sequence keySequence => iterator.EnterSequence(keySequence.Tag),
+                            Mapping keyMapping => iterator.EnterMapping(keyMapping.Tag),
+                            _ => throw Invariants.InvalidCase(key)
+                        };
                     }
 
-                    return mapping;
-                }
-            }
+                    var value = LoadNode(keyIterator.EnterMappingValue(), out _);
 
-            public Node Visit(Comment comment) => throw UnexpectedEvent(comment);
-            public Node Visit(SequenceEnd sequenceEnd) => throw UnexpectedEvent(sequenceEnd);
-            public Node Visit(MappingEnd mappingEnd) => throw UnexpectedEvent(mappingEnd);
-            public Node Visit(DocumentStart documentStart) => throw UnexpectedEvent(documentStart);
-            public Node Visit(DocumentEnd documentEnd) => throw UnexpectedEvent(documentEnd);
-            public Node Visit(StreamStart streamStart) => throw UnexpectedEvent(streamStart);
-            public Node Visit(StreamEnd streamEnd) => throw UnexpectedEvent(streamEnd);
+                    items.Add(key, value);
+                }
+
+                return mapping;
+            }
 
             private void AddAnchoredNode(AnchorName anchor, Node node)
             {
                 if (!anchor.IsEmpty)
                 {
+                    // The anchor might already exist. In that case we want to replace it.
                     anchoredNodes[anchor] = node;
-                }
-            }
-
-            private delegate bool ResolveNonSpecificTagDelegate<TNode>(TNode node, IEnumerable<INodePathSegment> path, [NotNullWhen(true)] out INodeMapper? resolvedTag);
-
-            private INodeMapper ResolveNode<TNode>(TNode node, ResolveNonSpecificTagDelegate<TNode> resolveNonSpecificTag)
-                where TNode : NodeEvent
-            {
-                var path = currentPath.GetCurrentPath();
-                if (node.Tag.IsNonSpecific)
-                {
-                    if (resolveNonSpecificTag(node, path, out var resolvedTag))
-                    {
-                        return resolvedTag;
-                    }
-                }
-                else if (schema.ResolveMapper(node.Tag, out var resolvedTag))
-                {
-                    return resolvedTag;
-                }
-
-                return new UnknownTagMapper(node.Tag, ((INodePathSegment)node).Kind);
-            }
-
-            private sealed class UnknownTagMapper : INodeMapper
-            {
-                public TagName Tag { get; }
-                public NodeKind MappedNodeKind { get; }
-
-                public UnknownTagMapper(TagName tag, NodeKind mappedNodeKind)
-                {
-                    Tag = tag;
-                    MappedNodeKind = mappedNodeKind;
-                }
-
-                public object? Construct(Node node)
-                {
-                    throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
-                }
-
-                public Node Represent(object? native, ISchema schema, NodePath currentPath)
-                {
-                    throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
                 }
             }
         }
 
-        private sealed class AnchorAssigner : INodeVisitor<Empty>
+        private static Dictionary<Node, AnchorName> AssignAnchors(Node root, Func<Node, AnchorName> assignAnchor)
         {
-            private readonly Func<Node, AnchorName> assignAnchor;
-            private readonly HashSet<Node> encounteredNodes = new HashSet<Node>(ReferenceEqualityComparer<Node>.Default);
-            private readonly Dictionary<Node, AnchorName> assignedAnchors = new Dictionary<Node, AnchorName>(ReferenceEqualityComparer<Node>.Default);
+            var encounteredNodes = new HashSet<Node>(ReferenceEqualityComparer<Node>.Default);
+            var assignedAnchors = new Dictionary<Node, AnchorName>(ReferenceEqualityComparer<Node>.Default);
 
-            public AnchorAssigner(Func<Node, AnchorName> assignAnchor)
-            {
-                this.assignAnchor = assignAnchor ?? throw new ArgumentNullException(nameof(assignAnchor));
-            }
+            AssignAnchors(root);
+            return assignedAnchors;
 
-            public Dictionary<Node, AnchorName> GetAssignedAnchors()
-            {
-                return assignedAnchors;
-            }
-
-            private void VisitNode(Node node)
+            void AssignAnchors(Node node)
             {
                 if (!encounteredNodes.Add(node) && !assignedAnchors.ContainsKey(node))
                 {
                     assignedAnchors.Add(node, assignAnchor(node));
                 }
-            }
 
-            Empty INodeVisitor<Empty>.Visit(Scalar scalar)
-            {
-                VisitNode(scalar);
-                return default;
-            }
-
-            Empty INodeVisitor<Empty>.Visit(Sequence sequence)
-            {
-                VisitNode(sequence);
-                foreach (var child in sequence)
+                foreach (var child in node.Children)
                 {
-                    child.Accept(this);
+                    AssignAnchors(child);
                 }
-                return default;
-            }
-
-            Empty INodeVisitor<Empty>.Visit(Mapping mapping)
-            {
-                VisitNode(mapping);
-                foreach (var (key, value) in mapping)
-                {
-                    key.Accept(this);
-                    value.Accept(this);
-                }
-                return default;
             }
         }
 
-        private sealed class NodeDumper : INodeVisitor<Empty>
+        private sealed class NodeDumper
         {
-            private readonly NodePath currentPath = new NodePath();
             private readonly IEmitter emitter;
-            private readonly ISchema schema;
             private readonly Dictionary<Node, AnchorName> anchors;
             private readonly HashSet<Node> emittedAnchoredNodes = new HashSet<Node>(ReferenceEqualityComparer<Node>.Default);
 
-            public NodeDumper(IEmitter emitter, ISchema schema, Dictionary<Node, AnchorName> anchors)
+            public NodeDumper(IEmitter emitter, Dictionary<Node, AnchorName> anchors)
             {
                 this.emitter = emitter ?? throw new ArgumentNullException(nameof(emitter));
-                this.schema = schema ?? throw new ArgumentNullException(nameof(schema));
                 this.anchors = anchors ?? throw new ArgumentNullException(nameof(anchors));
             }
 
-            public Empty Visit(Scalar scalar)
+            public void Dump(Node node, ISchemaIterator iterator, out ISchemaIterator? childIterator)
+            {
+                switch (node)
+                {
+                    case Scalar scalar:
+                        childIterator = iterator.EnterScalar(scalar.Tag, scalar.Value);
+                        Dump(scalar, childIterator);
+                        break;
+
+                    case Sequence sequence:
+                        childIterator = iterator.EnterSequence(sequence.Tag);
+                        Dump(sequence, childIterator);
+                        break;
+
+                    case Mapping mapping:
+                        childIterator = iterator.EnterMapping(mapping.Tag);
+                        Dump(mapping, childIterator);
+                        break;
+
+                    default:
+                        throw Invariants.InvalidCase(node);
+                }
+            }
+
+            private void Dump(Scalar scalar, ISchemaIterator iterator)
             {
                 if (!TryEmitAlias(scalar, out var anchor))
                 {
-                    using (currentPath.Push(scalar))
-                    {
-                        var path = currentPath.GetCurrentPath();
-                        var tag = schema.IsTagImplicit(scalar, path, out var style) ? TagName.Empty : scalar.Tag;
+                    var tag = iterator.IsTagImplicit(scalar, out var style) ? TagName.Empty : scalar.Tag;
 
-                        emitter.Emit(new Events.Scalar(anchor, tag, scalar.Value, style));
-                    }
+                    emitter.Emit(new ScalarEvent(anchor, tag, scalar.Value, style));
                 }
-                return default;
             }
 
-            public Empty Visit(Sequence sequence)
+            private void Dump(Sequence sequence, ISchemaIterator iterator)
             {
                 if (!TryEmitAlias(sequence, out var anchor))
                 {
-                    using (currentPath.Push(sequence))
+                    var tag = iterator.IsTagImplicit(sequence, out var style) ? TagName.Empty : sequence.Tag;
+
+                    emitter.Emit(new SequenceStart(anchor, tag, style));
+                    foreach (var item in sequence)
                     {
-                        var path = currentPath.GetCurrentPath();
-                        var tag = schema.IsTagImplicit(sequence, path, out var style) ? TagName.Empty : sequence.Tag;
-
-                        var sequenceStart = new SequenceStart(anchor, tag, style);
-                        emitter.Emit(sequenceStart);
-
-                        foreach (var item in sequence)
-                        {
-                            item.Accept(this);
-                        }
+                        Dump(item, iterator, out _);
                     }
-
                     emitter.Emit(new SequenceEnd());
                 }
-                return default;
             }
 
-            public Empty Visit(Mapping mapping)
+            private void Dump(Mapping mapping, ISchemaIterator iterator)
             {
                 if (!TryEmitAlias(mapping, out var anchor))
                 {
-                    using (currentPath.Push(mapping))
+                    var tag = iterator.IsTagImplicit(mapping, out var style) ? TagName.Empty : mapping.Tag;
+
+                    emitter.Emit(new MappingStart(anchor, tag, style));
+                    foreach (var (key, value) in mapping)
                     {
-                        var path = currentPath.GetCurrentPath();
-                        var tag = schema.IsTagImplicit(mapping, path, out var style) ? TagName.Empty : mapping.Tag;
-
-                        var mappingStart = new MappingStart(anchor, tag, style);
-                        emitter.Emit(mappingStart);
-
-                        foreach (var (key, value) in mapping)
-                        {
-                            key.Accept(this);
-                            using (currentPath.Push(key))
-                            {
-                                value.Accept(this);
-                            }
-                        }
+                        Dump(key, iterator, out var keyIterator);
+                        Dump(value, keyIterator.EnterMappingValue(), out _);
                     }
-
                     emitter.Emit(new MappingEnd());
                 }
-                return default;
             }
 
             private bool TryEmitAlias(Node node, out AnchorName anchor)

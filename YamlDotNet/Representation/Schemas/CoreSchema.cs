@@ -19,6 +19,8 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
+using System;
+using System.Collections.Generic;
 using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation.Schemas
@@ -26,71 +28,112 @@ namespace YamlDotNet.Representation.Schemas
     /// <summary>
     /// Implements the Core schema: <see href="https://yaml.org/spec/1.2/spec.html#id2804923"/>.
     /// </summary>
-    public sealed class CoreSchema : RegexBasedSchema
+    public static class CoreSchema
     {
-        private CoreSchema() : base(BuildMappingTable(), StringMapper.Default) { }
+        public static readonly ISchema Instance = new CompositeSchema(new ContextFreeSchema(CreateMatchers()), FailsafeSchema.Strict);
 
-        public static readonly CoreSchema Instance = new CoreSchema();
-
-        private static RegexTagMappingTable BuildMappingTable() => new RegexTagMappingTable
+        public static class IntegerMapper
         {
+            public enum Formats
             {
+                Base8,
+                Base10,
+                Base16,
+            }
+
+            public static readonly MultiFormatScalarMapper<Formats> Canonical = new MultiFormatScalarMapper<Formats>(
+                YamlTagRepository.Integer,
+                new MultiFormatScalarMapperFormat<Formats>(
+                    Formats.Base10,
+                    "^[-+]?[0-9]+$",
+                    s => IntegerParser.ParseBase10(s.Value),
+                    JsonSchema.FormatInteger
+                ),
+                new MultiFormatScalarMapperFormat<Formats>(
+                    Formats.Base8,
+                    "^0o[0-7]+$",
+                    s => IntegerParser.ParseBase8Unsigned(s.Value),
+                    v => throw new NotImplementedException("TODO")
+                ),
+                new MultiFormatScalarMapperFormat<Formats>(
+                    Formats.Base16,
+                    "^0x[0-9a-fA-F]+$",
+                    s => IntegerParser.ParseBase16Unsigned(s.Value),
+                    v => throw new NotImplementedException("TODO")
+                )
+            );
+
+            public static INodeMapper Base8 => Canonical.GetFormat(Formats.Base8);
+            public static INodeMapper Base10 => Canonical.GetFormat(Formats.Base10);
+            public static INodeMapper Base16 => Canonical.GetFormat(Formats.Base16);
+        }
+
+        public static class FloatingPointMapper
+        {
+            public enum Formats
+            {
+                Regular,
+                Infinity,
+                NotANumber,
+            }
+
+            public static readonly MultiFormatScalarMapper<Formats> Canonical = new MultiFormatScalarMapper<Formats>(
+                YamlTagRepository.FloatingPoint,
+                new MultiFormatScalarMapperFormat<Formats>(
+                    Formats.Regular,
+                    @"^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$",
+                    s => FloatingPointParser.ParseBase10Unseparated(s.Value),
+                    JsonSchema.FormatFloatingPoint
+                ),
+                new MultiFormatScalarMapperFormat<Formats>(
+                    Formats.Infinity,
+                    @"^[-+]?(\.inf|\.Inf|\.INF)$",
+                    s => IntegerParser.ParseBase8Unsigned(s.Value),
+                    JsonSchema.FormatFloatingPoint
+                ),
+                new MultiFormatScalarMapperFormat<Formats>(
+                    Formats.NotANumber,
+                    @"^(\.nan|\.NaN|\.NAN)$",
+                    s => IntegerParser.ParseBase16Unsigned(s.Value),
+                    JsonSchema.FormatFloatingPoint
+                )
+            );
+        }
+
+        private static IEnumerable<INodeMatcher> CreateMatchers()
+        {
+            yield return new RegexMatcher(
                 "^(null|Null|NULL|~?)$",
-                YamlTagRepository.Null,
-                s => null,
-                _ => "null"
-            },
-            {
+                NodeMapper.CreateScalarMapper(
+                    YamlTagRepository.Null,
+                    _ => null,
+                    _ => "null"
+                )
+            );
+
+            yield return new RegexMatcher(
                 "^(true|True|TRUE|false|False|FALSE)$",
-                YamlTagRepository.Boolean,
-                // Assumes that the value matches the regex
-                s =>
-                {
-                    var firstChar = s.Value[0];
-                    return firstChar == 't' || firstChar == 'T';
-                },
-                JsonSchema.FormatBoolean
-            },
+                NodeMapper.CreateScalarMapper(
+                    YamlTagRepository.Boolean,
+                    s =>
+                    {
+                        // Assumes that the value matches the regex
+                        var firstChar = s.Value[0];
+                        return firstChar == 't' || firstChar == 'T';
+                    },
+                    JsonSchema.FormatBoolean
+                )
+            );
+
+            foreach (var format in IntegerMapper.Canonical.Formats)
             {
-                "^[-+]?[0-9]+$", // Base 10
-                YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase10(s.Value),
-                JsonSchema.FormatInteger
-            },
+                yield return new RegexMatcher(format.Pattern, format.Mapper);
+            }
+
+            foreach (var format in FloatingPointMapper.Canonical.Formats)
             {
-                "^0o[0-7]+$", // Base 8
-                YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase8Unsigned(s.Value),
-                JsonSchema.FormatInteger
-            },
-            {
-                "^0x[0-9a-fA-F]+$", // Base 16
-                YamlTagRepository.Integer,
-                s => IntegerParser.ParseBase16Unsigned(s.Value),
-                JsonSchema.FormatInteger
-            },
-            {
-                @"^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$",
-                YamlTagRepository.FloatingPoint,
-                s => FloatingPointParser.ParseBase10Unseparated(s.Value),
-                JsonSchema.FormatFloatingPoint
-            },
-            {
-                @"^[-+]?(\.inf|\.Inf|\.INF)$",
-                YamlTagRepository.FloatingPoint,
-                s => s.Value[0] switch
-                {
-                    '-' => double.NegativeInfinity,
-                    _ => double.PositiveInfinity
-                },
-                JsonSchema.FormatFloatingPoint
-            },
-            {
-                @"^(\.nan|\.NaN|\.NAN)$",
-                YamlTagRepository.FloatingPoint,
-                s => double.NaN,
-                JsonSchema.FormatFloatingPoint
-            },
-        };
+                yield return new RegexMatcher(format.Pattern, format.Mapper);
+            }
+        }
     }
 }

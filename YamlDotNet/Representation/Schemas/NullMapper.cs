@@ -42,6 +42,7 @@ namespace YamlDotNet.Representation.Schemas
 
         public TagName Tag => YamlTagRepository.Null;
         public NodeKind MappedNodeKind => NodeKind.Scalar;
+        public INodeMapper Canonical => this;
 
         public object? Construct(Node node)
         {

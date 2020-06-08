@@ -104,39 +104,14 @@ namespace YamlDotNet.Serialization
                 throw new ArgumentNullException(nameof(type));
             }
 
-            var schema = new TypeSchema(type, baseSchema, typeMatchers);
+            throw new NotImplementedException("TODO");
+            //var schema = new TypeSchema(type, baseSchema, typeMatchers);
 
-            var documents = Representation.Stream.Load(parser, _ => schema);
-            var document = documents.First();
+            //var documents = Representation.Stream.Load(parser, _ => schema);
+            //var document = documents.First();
 
-            var native = document.Content.Mapper.Construct(document.Content);
-            return TypeConverter.ChangeType(native, type);
-
-            //var hasStreamStart = parser.TryConsume<StreamStart>(out var _);
-
-            //var hasDocumentStart = parser.TryConsume<DocumentStart>(out var _);
-
-            //object? result = null;
-            //if (!parser.Accept<DocumentEnd>(out var _) && !parser.Accept<StreamEnd>(out var _))
-            //{
-            //    using (var state = new SerializerState())
-            //    {
-            //        result = valueDeserializer.DeserializeValue(parser, type, state, valueDeserializer);
-            //        state.OnDeserialization();
-            //    }
-            //}
-
-            //if (hasDocumentStart)
-            //{
-            //    parser.Consume<DocumentEnd>();
-            //}
-
-            //if (hasStreamStart)
-            //{
-            //    parser.Consume<StreamEnd>();
-            //}
-
-            //return result;
+            //var native = document.Content.Mapper.Construct(document.Content);
+            //return TypeConverter.ChangeType(native, type);
         }
     }
 }

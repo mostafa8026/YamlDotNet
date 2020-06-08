@@ -22,44 +22,44 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using YamlDotNet.Core;
 using YamlDotNet.Helpers;
 
 namespace YamlDotNet.Representation.Schemas
 {
-    public interface INodeMatcher<T>
+    public interface INodeMatcher
     {
         bool Matches(INodePathSegment node);
-        IEnumerable<INodeMatcher<T>> Children { get; }
-        T Value { get; }
+        IEnumerable<INodeMatcher> Children { get; }
+        INodeMapper Mapper { get; }
 
         void AddStringRepresentation(StringBuilder output);
     }
 
-    public abstract class NodeMatcher<T> : INodeMatcher<T>, IEnumerable
+    public abstract class NodeMatcher : INodeMatcher, IEnumerable
     {
         // Many matchers won't have children, hence the lazy initialization
-        private List<INodeMatcher<T>>? children;
+        private List<INodeMatcher>? children;
 
-        protected NodeMatcher(T value)
+        protected NodeMatcher(INodeMapper mapper)
         {
-            Value = value;
+            Mapper = mapper;
         }
 
-        public void Add(INodeMatcher<T> child)
+        public void Add(INodeMatcher child)
         {
             if (children == null)
             {
-                children = new List<INodeMatcher<T>>();
+                children = new List<INodeMatcher>();
             }
             children.Add(child);
         }
 
-        public IEnumerable<INodeMatcher<T>> Children => children ?? Enumerable.Empty<INodeMatcher<T>>();
-        public T Value { get; }
+        public IEnumerable<INodeMatcher> Children => children ?? Enumerable.Empty<INodeMatcher>();
+        public INodeMapper Mapper { get; }
 
         public abstract bool Matches(INodePathSegment node);
 
@@ -67,7 +67,7 @@ namespace YamlDotNet.Representation.Schemas
 
         public override string ToString()
         {
-            static void ToString(INodeMatcher<T> matcher, StringBuilder output, int indent, Dictionary<INodeMatcher<T>, int> visitedNodeMatchers)
+            static void ToString(INodeMatcher matcher, StringBuilder output, int indent, Dictionary<INodeMatcher, int> visitedNodeMatchers)
             {
                 for (int i = 0; i < indent; ++i)
                 {
@@ -90,7 +90,7 @@ namespace YamlDotNet.Representation.Schemas
 
                     matcher.AddStringRepresentation(output);
                     output.Append(" -> ");
-                    output.Append(matcher.Value);
+                    output.Append(matcher.Mapper);
 
                     foreach (var child in matcher.Children)
                     {
@@ -101,36 +101,83 @@ namespace YamlDotNet.Representation.Schemas
             }
 
             var text = new StringBuilder();
-            ToString(this, text, 0, new Dictionary<INodeMatcher<T>, int>(ReferenceEqualityComparer<INodeMatcher<T>>.Default));
+            ToString(this, text, 0, new Dictionary<INodeMatcher, int>(ReferenceEqualityComparer<INodeMatcher>.Default));
             return text.ToString();
         }
 
         public abstract void AddStringRepresentation(StringBuilder output);
     }
 
-    public class NodeKindMatcher<T> : NodeMatcher<T>
+    public class NodeKindMatcher : NodeMatcher
     {
-        private readonly NodeKind expectedKind;
-
-        public NodeKindMatcher(NodeKind expectedKind, T value) : base(value)
+        public NodeKindMatcher(INodeMapper mapper) : base(mapper)
         {
-            this.expectedKind = expectedKind;
         }
 
-        public override bool Matches(INodePathSegment node) => node.Kind == expectedKind;
+        public override bool Matches(INodePathSegment node) => node.Kind == Mapper.MappedNodeKind;
 
         public override void AddStringRepresentation(StringBuilder output)
         {
-            output.Append(expectedKind);
+            output.Append(Mapper.MappedNodeKind);
         }
     }
 
-    public sealed class ScalarValueMatcher<T> : NodeKindMatcher<T>
+    public sealed class TagMatcher : NodeKindMatcher
+    {
+        private readonly TagName expectedTag;
+
+        public TagMatcher(TagName expectedTag, INodeMapper mapper) : base(mapper)
+        {
+            this.expectedTag = expectedTag;
+        }
+
+        public override bool Matches(INodePathSegment node)
+        {
+            return base.Matches(node)
+                && node.Tag.Equals(expectedTag);
+        }
+
+        public override void AddStringRepresentation(StringBuilder output)
+        {
+            base.AddStringRepresentation(output);
+            output
+                .Append("[tag='")
+                .Append(expectedTag)
+                .Append("']");
+        }
+    }
+
+    public sealed class NonSpecificTagMatcher : NodeKindMatcher
+    {
+        public NonSpecificTagMatcher(INodeMapper mapper) : base(mapper)
+        {
+        }
+
+        public override bool Matches(INodePathSegment node)
+        {
+            return base.Matches(node)
+                && node.Tag.IsNonSpecific;
+        }
+
+        public override void AddStringRepresentation(StringBuilder output)
+        {
+            base.AddStringRepresentation(output);
+            output
+                .Append("[tag=?|!]");
+        }
+    }
+
+    public sealed class ScalarValueMatcher : NodeKindMatcher
     {
         private readonly string expectedScalarValue;
 
-        public ScalarValueMatcher(string expectedScalarValue, T value) : base(NodeKind.Scalar, value)
+        public ScalarValueMatcher(string expectedScalarValue, INodeMapper mapper) : base(mapper)
         {
+            if (mapper.MappedNodeKind != NodeKind.Scalar)
+            {
+                throw new ArgumentException("The specified mapper must be for scalars", nameof(mapper));
+            }
+
             this.expectedScalarValue = expectedScalarValue ?? throw new ArgumentNullException(nameof(expectedScalarValue));
         }
 
@@ -150,66 +197,39 @@ namespace YamlDotNet.Representation.Schemas
         }
     }
 
-    //public sealed class SequenceMatcher<T>
-
-    public static class NodePathMatcher
+    public sealed class RegexMatcher : NodeKindMatcher
     {
-        public static bool Query<T>(this INodeMatcher<T> matcher, IEnumerable<INodePathSegment> query, [MaybeNullWhen(false)] out T value)
-        {
-            if (Query(new[] { matcher }, query, out var result))
-            {
-                value = result.Value;
-                return true;
-            }
+        private readonly Regex pattern;
 
-            value = default!;
-            return false;
+        public RegexMatcher(string pattern, INodeMapper mapper)
+            : this(new Regex(pattern, StandardRegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture), mapper)
+        {
         }
 
-        public static IEnumerable<T> QueryChildren<T>(this INodeMatcher<T> matcher, IEnumerable<INodePathSegment> query)
+        public RegexMatcher(Regex pattern, INodeMapper mapper) : base(mapper)
         {
-            if (Query(new[] { matcher }, query, out var result))
+            if (mapper.MappedNodeKind != NodeKind.Scalar)
             {
-                foreach (var child in result.Children)
-                {
-                    yield return child.Value;
-                }
+                throw new ArgumentException("The specified mapper must be for scalars", nameof(mapper));
             }
+
+            this.pattern = pattern ?? throw new ArgumentNullException(nameof(pattern));
         }
 
-        private static bool Query<T>(IEnumerable<INodeMatcher<T>> matchers, IEnumerable<INodePathSegment> query, [NotNullWhen(true)] out INodeMatcher<T>? result)
+        public override bool Matches(INodePathSegment node)
         {
-            // I couldn't find a cleaner way to implement this algorithm without using gotos.
+            return base.Matches(node)
+                && node.Tag.IsEmpty
+                && pattern.IsMatch(node.Value);
+        }
 
-            using var iterator = query.GetEnumerator();
-
-            if (iterator.MoveNext())
-            {
-                INodeMatcher<T> current;
-                do
-                {
-                    var segment = iterator.Current;
-                    foreach (var candidate in matchers)
-                    {
-                        if (candidate.Matches(segment))
-                        {
-                            current = candidate;
-                            matchers = candidate.Children;
-                            goto continue_traversal; // break from the inner loop and continue the outer loop
-                        }
-                    }
-                    result = null;
-                    return false;
-
-                continue_traversal:;
-                } while (iterator.MoveNext());
-
-                result = current;
-                return true;
-            }
-
-            result = null;
-            return false;
+        public override void AddStringRepresentation(StringBuilder output)
+        {
+            base.AddStringRepresentation(output);
+            output
+                .Append("[value~'")
+                .Append(pattern.ToString())
+                .Append("']");
         }
     }
 }

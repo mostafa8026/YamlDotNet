@@ -42,6 +42,7 @@ namespace YamlDotNet.Serialization.Schemas
 
         public TagName Tag { get; }
         public NodeKind MappedNodeKind => NodeKind.Mapping;
+        public INodeMapper Canonical => this;
 
         public object? Construct(Node node)
         {
@@ -90,10 +91,11 @@ namespace YamlDotNet.Serialization.Schemas
 
                         using (currentPath.Push(keyNode))
                         {
-                            var valueMapper = schema.ResolveChildMapper(value, currentPath.GetCurrentPath());
-                            var valueNode = valueMapper.Represent(value, schema, currentPath);
+                            throw new NotImplementedException("TODO");
+                            //var valueMapper = schema.ResolveChildMapper(value, currentPath.GetCurrentPath());
+                            //var valueNode = valueMapper.Represent(value, schema, currentPath);
 
-                            children.Add(keyNode, valueNode);
+                            //children.Add(keyNode, valueNode);
                         }
                     }
                 }

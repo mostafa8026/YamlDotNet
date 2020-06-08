@@ -43,14 +43,13 @@ namespace YamlDotNet.Representation
         }
 
         public override NodeKind Kind => NodeKind.Sequence;
+        public override IEnumerable<Node> Children => items;
 
         public int Count => this.items.Count;
         public Node this[int index] => this.items[index];
 
         public IEnumerator<Node> GetEnumerator() => this.items.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-        public override T Accept<T>(INodeVisitor<T> visitor) => visitor.Visit(this);
 
         public override bool Equals([AllowNull] Node other)
         {

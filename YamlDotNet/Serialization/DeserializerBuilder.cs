@@ -334,87 +334,88 @@ namespace YamlDotNet.Serialization
         /// </summary>
         public IDeserializer Build()
         {
-            INodeMapper GetBaseMapper(TagName tag)
-            {
-                return schema.ResolveMapper(tag, out var mapper)
-                    ? mapper
-                    : throw new Exception($"Mapper for tag '{tag}' not found.");
-            }
+            throw new NotImplementedException("TODO");
+            //INodeMapper GetBaseMapper(TagName tag)
+            //{
+            //    return schema.ResolveMapper(tag, out var mapper)
+            //        ? mapper
+            //        : throw new Exception($"Mapper for tag '{tag}' not found.");
+            //}
 
-            var integerMapper = GetBaseMapper(YamlTagRepository.Integer);
-            var floatingPointMapper = GetBaseMapper(YamlTagRepository.FloatingPoint);
-            var stringMapper = GetBaseMapper(YamlTagRepository.String);
-            var booleanMapper = GetBaseMapper(YamlTagRepository.Boolean);
+            //var integerMapper = GetBaseMapper(YamlTagRepository.Integer);
+            //var floatingPointMapper = GetBaseMapper(YamlTagRepository.FloatingPoint);
+            //var stringMapper = GetBaseMapper(YamlTagRepository.String);
+            //var booleanMapper = GetBaseMapper(YamlTagRepository.Boolean);
 
-            var tagNameResolver = new CompositeTagNameResolver(
-                new TableTagNameResolver(tagMappings.ToDictionary(p => p.Value, p => p.Key).AsReadonlyDictionary()),
-                TypeNameTagNameResolver.Instance
-            );
+            //var tagNameResolver = new CompositeTagNameResolver(
+            //    new TableTagNameResolver(tagMappings.ToDictionary(p => p.Value, p => p.Key).AsReadonlyDictionary()),
+            //    TypeNameTagNameResolver.Instance
+            //);
 
-            var typeMatchers = new TypeMatcherTable(requireThreadSafety: true) // TODO: Configure requireThreadSafety
-            {
-                { typeof(long), integerMapper }, // This is the 'main' one and needs to go first
-                { typeof(sbyte), integerMapper },
-                { typeof(byte), integerMapper },
-                { typeof(short), integerMapper },
-                { typeof(ushort), integerMapper },
-                { typeof(int), integerMapper },
-                { typeof(uint), integerMapper },
-                { typeof(ulong), integerMapper },
+            //var typeMatchers = new TypeMatcherTable(requireThreadSafety: true) // TODO: Configure requireThreadSafety
+            //{
+            //    { typeof(long), integerMapper }, // This is the 'main' one and needs to go first
+            //    { typeof(sbyte), integerMapper },
+            //    { typeof(byte), integerMapper },
+            //    { typeof(short), integerMapper },
+            //    { typeof(ushort), integerMapper },
+            //    { typeof(int), integerMapper },
+            //    { typeof(uint), integerMapper },
+            //    { typeof(ulong), integerMapper },
 
-                { typeof(double), floatingPointMapper }, // This is the 'main' one and needs to go first
-                { typeof(float), floatingPointMapper },
+            //    { typeof(double), floatingPointMapper }, // This is the 'main' one and needs to go first
+            //    { typeof(float), floatingPointMapper },
 
-                { typeof(string), stringMapper }, // This is the 'main' one and needs to go first
-                { typeof(char), stringMapper }, // TODO: Test this
+            //    { typeof(string), stringMapper }, // This is the 'main' one and needs to go first
+            //    { typeof(char), stringMapper }, // TODO: Test this
 
-                { typeof(bool), booleanMapper },
+            //    { typeof(bool), booleanMapper },
 
-                {
-                    typeof(ICollection<>),
-                    (concrete, iCollection, lookupMatcher) =>
-                    {
-                        var itemType = iCollection.GetGenericArguments()[0];
-                        return new NodeKindMatcher<INodeMapper>(NodeKind.Sequence, SequenceMapper.Create(concrete, itemType))
-                        {
-                            lookupMatcher(itemType)
-                        };
-                    }
-                },
-                {
-                    typeof(IDictionary<,>),
-                    (concrete, iDictionary, lookupMatcher) =>
-                    {
-                        var types = iDictionary.GetGenericArguments();
-                        var keyType = types[0];
-                        var valueType = types[1];
+            //    {
+            //        typeof(ICollection<>),
+            //        (concrete, iCollection, lookupMatcher) =>
+            //        {
+            //            var itemType = iCollection.GetGenericArguments()[0];
+            //            return new NodeKindMatcher(NodeKind.Sequence, SequenceMapper.Create(concrete, itemType))
+            //            {
+            //                lookupMatcher(itemType)
+            //            };
+            //        }
+            //    },
+            //    {
+            //        typeof(IDictionary<,>),
+            //        (concrete, iDictionary, lookupMatcher) =>
+            //        {
+            //            var types = iDictionary.GetGenericArguments();
+            //            var keyType = types[0];
+            //            var valueType = types[1];
 
-                        var keyMapper = lookupMatcher(keyType).Value;
+            //            var keyMapper = lookupMatcher(keyType).Value;
 
-                        return new NodeKindMatcher<INodeMapper>(NodeKind.Mapping, MappingMapper.Create(concrete, keyType, valueType))
-                        {
-                            new NodeKindMatcher<INodeMapper>(keyMapper.MappedNodeKind, keyMapper)
-                            {
-                                lookupMatcher(valueType)
-                            }
-                        };
-                    }
-                },
-                {
-                    typeof(object),
-                    (concrete, _, lookupMatcher) =>
-                    {
-                        if (!tagNameResolver.Resolve(concrete, out var tag))
-                        {
-                            throw new ArgumentException($"Could not resolve a tag for type '{concrete.FullName}'.");
-                        }
-                        var mapper = new ObjectMapper(concrete, tag);
-                        return new NodeKindMatcher<INodeMapper>(mapper.MappedNodeKind, mapper);
-                    }
-                }
-            };
+            //            return new NodeKindMatcher(NodeKind.Mapping, MappingMapper.Create(concrete, keyType, valueType))
+            //            {
+            //                new NodeKindMatcher(keyMapper.MappedNodeKind, keyMapper)
+            //                {
+            //                    lookupMatcher(valueType)
+            //                }
+            //            };
+            //        }
+            //    },
+            //    {
+            //        typeof(object),
+            //        (concrete, _, lookupMatcher) =>
+            //        {
+            //            if (!tagNameResolver.Resolve(concrete, out var tag))
+            //            {
+            //                throw new ArgumentException($"Could not resolve a tag for type '{concrete.FullName}'.");
+            //            }
+            //            var mapper = new ObjectMapper(concrete, tag);
+            //            return new NodeKindMatcher(mapper.MappedNodeKind, mapper);
+            //        }
+            //    }
+            //};
 
-            return new Deserializer(typeMatchers, schema);
+            //return new Deserializer(typeMatchers, schema);
         }
     }
 }
