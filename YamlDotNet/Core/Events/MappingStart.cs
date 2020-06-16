@@ -26,7 +26,7 @@ namespace YamlDotNet.Core.Events
     /// <summary>
     /// Represents a mapping start event.
     /// </summary>
-    public sealed class MappingStart : CollectionEvent
+    public sealed class MappingStart : CollectionEvent, IMapping
     {
         /// <summary>
         /// Gets a value indicating the variation of depth caused by this event.

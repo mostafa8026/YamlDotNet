@@ -24,7 +24,6 @@ using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using YamlDotNet.Core;
-using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
 using Stream = YamlDotNet.Representation.Stream;
 
@@ -39,158 +38,135 @@ namespace YamlDotNet.Test.Representation
             this.output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        [Fact]
-        public void ParseWithoutSchemaProducesNonSpecificTags()
-        {
-            AssertParseWithSchemaProducesCorrectTags(
-                NullSchema,
-                @"
-                    - { actual: plain, expected: !? 'plain' }
-                    - { actual: 'single quoted', expected: ! 'single quoted' }
-                    - { actual: ""double quoted"", expected: ! 'double quoted' }
+        [Theory]
+        [InlineData("plain", "!? 'plain'")]
+        [InlineData("'single quoted'", "! 'single quoted'")]
+        [InlineData("\"double quoted\"", "! 'double quoted'")]
 
-                    - { actual: { a: b }, expected: !? { a: b } }
-                    - { actual: [ a, b ], expected: !? [ a, b ] }
-                "
-            );
+        [InlineData("{ a: b }", "!? { a: b }")]
+        [InlineData("[ a, b ]", "!? [ a, b ]")]
+        public void ParseWithoutSchemaProducesNonSpecificTags(string input, string expected)
+        {
+            ParseWithSchemaProducesCorrectTags(NullSchema, input, expected);
         }
 
-        [Fact]
-        public void ParseWithFailsafeSchemaProducesCorrectTags()
+        [Theory]
+        [InlineData("null", "!? 'null'")]
+        [InlineData("Null", "!? 'Null'")]
+        [InlineData("NULL", "!? 'NULL'")]
+        [InlineData("~", "!? '~'")]
+        [InlineData("---", "!? ''")]
+
+        [InlineData("true", "!? 'true'")]
+        [InlineData("True", "!? 'True'")]
+        [InlineData("TRUE", "!? 'TRUE'")]
+        [InlineData("false", "!? 'false'")]
+        [InlineData("False", "!? 'False'")]
+        [InlineData("FALSE", "!? 'FALSE'")]
+
+        [InlineData("0", "!? '0'")]
+        [InlineData("13", "!? '13'")]
+        [InlineData("-6", "!? '-6'")]
+        [InlineData("0o10", "!? '8'")]
+        [InlineData("0x3A", "!? '58'")]
+
+        [InlineData("0.", "!? '0.'")]
+        [InlineData("-0.0", "!? '-0.0'")]
+        [InlineData(".5", "!? '.5'")]
+        [InlineData("+12e03", "!? '+12e03'")]
+        [InlineData("-2E+05", "!? '-2E+05'")]
+        [InlineData(".inf", "!? '.inf'")]
+        [InlineData("-.Inf", "!? '-.Inf'")]
+        [InlineData("+.INF", "!? '+.inf'")]
+        [InlineData(".nan", "!? '.nan'")]
+
+        [InlineData("'non-plain'", "!!str 'non-plain'")]
+
+        [InlineData("{ a: b }", "!!map { a: b }")]
+        [InlineData("! { a: b }", "!!map { a: b }")]
+        [InlineData("[ a, b ]", "!!seq [ a, b ]")]
+        [InlineData("! [ a, b ]", "!!seq [ a, b ]")]
+        public void ParseWithFailsafeSchemaProducesCorrectTags(string input, string expected)
         {
-            AssertParseWithSchemaProducesCorrectTags(
-                FailsafeSchema.Strict,
-                @"
-                    - { actual: null, expected: !? 'null' }
-                    - { actual: Null, expected: !? 'Null' }
-                    - { actual: NULL, expected: !? 'NULL' }
-                    - { actual: ~, expected: !? '~' }
-                    - { actual: , expected: !? '' }
-
-                    - { actual: true, expected: !? 'true' }
-                    - { actual: True, expected: !? 'True' }
-                    - { actual: TRUE, expected: !? 'TRUE' }
-                    - { actual: false, expected: !? 'false' }
-                    - { actual: False, expected: !? 'False' }
-                    - { actual: FALSE, expected: !? 'FALSE' }
-
-                    - { actual: 0, expected: !? '0' }
-                    - { actual: 13, expected: !? '13' }
-                    - { actual: -6, expected: !? '-6' }
-                    - { actual: 0o10, expected: !? '8' }
-                    - { actual: 0x3A, expected: !? '58' }
-
-                    - { actual: 0., expected: !? '0.' }
-                    - { actual: -0.0, expected: !? '-0.0' }
-                    - { actual: .5, expected: !? '.5' }
-                    - { actual: +12e03, expected: !? '+12e03' }
-                    - { actual: -2E+05, expected: !? '-2E+05' }
-                    - { actual: .inf, expected: !? '.inf' }
-                    - { actual: -.Inf, expected: !? '-.Inf' }
-                    - { actual: +.INF, expected: !? '+.inf' }
-                    - { actual: .nan, expected: !? '.nan' }
-
-                    - { actual: 'non-plain', expected: !!str 'non-plain' }
-
-                    - { actual: { a: b }, expected: !!map { a: b } }
-                    - { actual: ! { a: b }, expected: !!map { a: b } }
-                    - { actual: [ a, b ], expected: !!seq [ a, b ] }
-                    - { actual: ! [ a, b ], expected: !!seq [ a, b ] }
-                "
-            );
+            ParseWithSchemaProducesCorrectTags(FailsafeSchema.Strict, input, expected);
         }
 
-        [Fact]
-        public void ParseWithJsonSchemaProducesCorrectTags()
+        [Theory]
+        [InlineData("null", "!!null")]
+        [InlineData("! null", "!!str 'null'")]
+
+        [InlineData("true", "!!bool true")]
+        [InlineData("false", "!!bool false")]
+
+        [InlineData("0", "!!int 0")]
+        [InlineData("13", "!!int 13")]
+        [InlineData("-6", "!!int -6")]
+
+        [InlineData("0.", "!!float 0.")]
+        [InlineData("-0.0", "!!float -0.0")]
+        [InlineData("0.5", "!!float 0.5")]
+        [InlineData("12e03", "!!float 12e03")]
+        [InlineData("-2E+05", "!!float -2E+05")]
+
+        [InlineData("{ 'a': 'b' }", "!!map { 'a': 'b' }")]
+        [InlineData("! { 'a': 'b' }", "!!map { 'a': 'b' }")]
+        [InlineData("[ 'a', 'b' ]", "!!seq [ 'a', 'b' ]")]
+        [InlineData("! [ 'a', 'b' ]", "!!seq [ 'a', 'b' ]")]
+        public void ParseWithJsonSchemaProducesCorrectTags(string input, string expected)
         {
-            AssertParseWithSchemaProducesCorrectTags(
-                JsonSchema.Strict,
-                @"
-                    - { 'actual': null, 'expected': !!null }
-                    - { 'actual': ! null, 'expected': !!str 'null' }
-
-                    - { 'actual': true, 'expected': !!bool true }
-                    - { 'actual': false, 'expected': !!bool false }
-
-                    - { 'actual': 0, 'expected': !!int 0 }
-                    - { 'actual': 13, 'expected': !!int 13 }
-                    - { 'actual': -6, 'expected': !!int -6 }
-
-                    - { 'actual': 0., 'expected': !!float 0. }
-                    - { 'actual': -0.0, 'expected': !!float -0.0 }
-                    - { 'actual': 0.5, 'expected': !!float 0.5 }
-                    - { 'actual': 12e03, 'expected': !!float 12e03 }
-                    - { 'actual': -2E+05, 'expected': !!float -2E+05 }
-
-                    - { 'actual': { 'a': 'b' }, 'expected': !!map { 'a': 'b' } }
-                    - { 'actual': ! { 'a': 'b' }, 'expected': !!map { 'a': 'b' } }
-                    - { 'actual': [ 'a', 'b' ], 'expected': !!seq [ 'a', 'b' ] }
-                    - { 'actual': ! [ 'a', 'b' ], 'expected': !!seq [ 'a', 'b' ] }
-                "
-            );
+            ParseWithSchemaProducesCorrectTags(JsonSchema.Strict, input, expected);
         }
 
-        [Fact]
-        public void ParseWithCoreSchemaProducesCorrectTags()
-        {
-            AssertParseWithSchemaProducesCorrectTags(
-                CoreSchema.Instance,
-                @"
-                    #- { actual: null, expected: !!null }
-                    #- { actual: Null, expected: !!null }
-                    #- { actual: NULL, expected: !!null }
-                    #- { actual: ~, expected: !!null }
-                    #- { actual: , expected: !!null }
-                    #
-                    #- { actual: true, expected: !!bool true }
-                    #- { actual: True, expected: !!bool true }
-                    #- { actual: TRUE, expected: !!bool true }
-                    #- { actual: false, expected: !!bool false }
-                    #- { actual: False, expected: !!bool false }
-                    #- { actual: FALSE, expected: !!bool false }
-                    #
-                    #- { actual: 0, expected: !!int 0 }
-                    #- { actual: 13, expected: !!int 13 }
-                    #- { actual: -6, expected: !!int -6 }
-                    #- { actual: 0o10, expected: !!int 8 }
-                    #- { actual: 0x3A, expected: !!int 58 }
+        [Theory]
+        [InlineData("null", "!!null")]
+        [InlineData("Null", "!!null")]
+        [InlineData("NULL", "!!null")]
+        [InlineData("~", "!!null")]
+        [InlineData("---", "!!null")]
 
-                    - { actual: 0., expected: !!float 0 }
-                    - { actual: -0.0, expected: !!float 0 }
-                    - { actual: .5, expected: !!float 0.5 }
-                    - { actual: +12e03, expected: !!float 12000 }
-                    - { actual: -2E+05, expected: !!float -200000 }
-                    - { actual: .inf, expected: !!float .inf }
-                    - { actual: -.Inf, expected: !!float -.Inf }
-                    - { actual: +.INF, expected: !!float +.inf }
-                    - { actual: .nan, expected: !!float .nan }
-                "
-            );
+        [InlineData("true", "!!bool true")]
+        [InlineData("True", "!!bool true")]
+        [InlineData("TRUE", "!!bool true")]
+        [InlineData("false", "!!bool false")]
+        [InlineData("False", "!!bool false")]
+        [InlineData("FALSE", "!!bool false")]
+
+        [InlineData("0", "!!int 0")]
+        [InlineData("13", "!!int 13")]
+        [InlineData("-6", "!!int -6")]
+        [InlineData("0o10", "!!int 8")]
+        [InlineData("0x3A", "!!int 58")]
+
+        [InlineData("0.", "!!float 0")]
+        [InlineData("-0.0", "!!float 0")]
+        [InlineData(".5", "!!float 0.5")]
+        [InlineData("+12e03", "!!float 12000")]
+        [InlineData("-2E+05", "!!float -200000")]
+        [InlineData(".inf", "!!float .inf")]
+        [InlineData("-.Inf", "!!float -.Inf")]
+        [InlineData("+.INF", "!!float +.inf")]
+        [InlineData(".nan", "!!float .nan")]
+        public void ParseWithCoreSchemaProducesCorrectTags(string input, string expected)
+        {
+            ParseWithSchemaProducesCorrectTags(CoreSchema.Instance, input, expected);
         }
 
-        private void AssertParseWithSchemaProducesCorrectTags(ISchema schema, string yaml)
+        private void ParseWithSchemaProducesCorrectTags(ISchema schema, string input, string expected)
         {
-            var document = Stream.Load(Yaml.ParserForText(yaml), _ => schema).Single();
+            var actualNode = Stream.Load(Yaml.ParserForText(input), _ => schema).Single().Content;
+            var expectedNode = Stream.Load(Yaml.ParserForText(expected), _ => schema).Single().Content;
 
-            foreach (Mapping testCase in (Sequence)document.Content)
+            // Since we can't specify the '?' tag, we'll use '!?' and translate here
+            var expectedTag = expectedNode.Tag;
+            if (expectedTag.Value == "!?")
             {
-                var expected = testCase["expected"];
-                var actual = testCase["actual"];
-
-                output.WriteLine("actual: {0}\nexpected: {1}\n\n", actual, expected);
-
-                // Since we can't specify the '?' tag, we'll use '!?' and translate here
-                var expectedTag = expected.Tag;
-                if (expectedTag.Value == "!?")
-                {
-                    expectedTag = TagName.Empty;
-                }
-
-                Assert.Equal(expectedTag, actual.Tag);
+                expectedTag = TagName.Empty;
             }
+
+            Assert.Equal(expectedTag, actualNode.Tag);
         }
 
-        private static readonly ISchema NullSchema = new ContextFreeSchema(Enumerable.Empty<INodeMatcher>());
+        private static readonly ISchema NullSchema = new ContextFreeSchema(Enumerable.Empty<NodeMatcher>());
     }
 }
 

@@ -30,7 +30,7 @@ namespace YamlDotNet.Representation.Schemas
     /// </summary>
     public static class CoreSchema
     {
-        public static readonly ISchema Instance = new CompositeSchema(new ContextFreeSchema(CreateMatchers()), FailsafeSchema.Strict);
+        public static readonly ISchema Instance = new ContextFreeSchema(CreateMatchers());
 
         public static class IntegerMapper
         {
@@ -47,19 +47,19 @@ namespace YamlDotNet.Representation.Schemas
                     Formats.Base10,
                     "^[-+]?[0-9]+$",
                     s => IntegerParser.ParseBase10(s.Value),
-                    JsonSchema.FormatInteger
+                    IntegerFormatter.FormatBase10
                 ),
                 new MultiFormatScalarMapperFormat<Formats>(
                     Formats.Base8,
                     "^0o[0-7]+$",
                     s => IntegerParser.ParseBase8Unsigned(s.Value),
-                    v => throw new NotImplementedException("TODO")
+                    IntegerFormatter.FormatBase8Unsigned
                 ),
                 new MultiFormatScalarMapperFormat<Formats>(
                     Formats.Base16,
                     "^0x[0-9a-fA-F]+$",
                     s => IntegerParser.ParseBase16Unsigned(s.Value),
-                    v => throw new NotImplementedException("TODO")
+                    IntegerFormatter.FormatBase16Unsigned
                 )
             );
 
@@ -83,57 +83,86 @@ namespace YamlDotNet.Representation.Schemas
                     Formats.Regular,
                     @"^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$",
                     s => FloatingPointParser.ParseBase10Unseparated(s.Value),
-                    JsonSchema.FormatFloatingPoint
+                    FloatingPointFormatter.FormatBase10Unseparated
                 ),
                 new MultiFormatScalarMapperFormat<Formats>(
                     Formats.Infinity,
                     @"^[-+]?(\.inf|\.Inf|\.INF)$",
-                    s => IntegerParser.ParseBase8Unsigned(s.Value),
-                    JsonSchema.FormatFloatingPoint
+                    s => s.Value[0] == '-' ? double.NegativeInfinity : double.PositiveInfinity,
+                    FloatingPointFormatter.FormatBase10Unseparated
                 ),
                 new MultiFormatScalarMapperFormat<Formats>(
                     Formats.NotANumber,
                     @"^(\.nan|\.NaN|\.NAN)$",
-                    s => IntegerParser.ParseBase16Unsigned(s.Value),
-                    JsonSchema.FormatFloatingPoint
+                    s => double.NaN,
+                    FloatingPointFormatter.FormatBase10Unseparated
                 )
             );
         }
 
-        private static IEnumerable<INodeMatcher> CreateMatchers()
+        private static IEnumerable<NodeMatcher> CreateMatchers()
         {
-            yield return new RegexMatcher(
-                "^(null|Null|NULL|~?)$",
-                NodeMapper.CreateScalarMapper(
-                    YamlTagRepository.Null,
-                    _ => null,
-                    _ => "null"
+            yield return NodeMatcher
+                .ForScalars(
+                    NodeMapper.CreateScalarMapper(
+                        YamlTagRepository.Null,
+                        _ => null,
+                        _ => "null"
+                    )
                 )
-            );
+                .MatchPattern("^(null|Null|NULL|~?)$")
+                .MatchEmptyTags()
+                .Create();
 
-            yield return new RegexMatcher(
-                "^(true|True|TRUE|false|False|FALSE)$",
-                NodeMapper.CreateScalarMapper(
-                    YamlTagRepository.Boolean,
-                    s =>
-                    {
-                        // Assumes that the value matches the regex
-                        var firstChar = s.Value[0];
-                        return firstChar == 't' || firstChar == 'T';
-                    },
-                    JsonSchema.FormatBoolean
+            yield return NodeMatcher
+                .ForScalars(
+                    NodeMapper.CreateScalarMapper(
+                        YamlTagRepository.Boolean,
+                        s =>
+                        {
+                            // Assumes that the value matches the regex
+                            var firstChar = s.Value[0];
+                            return firstChar == 't' || firstChar == 'T';
+                        },
+                        JsonSchema.FormatBoolean
+                    )
                 )
-            );
+                .MatchPattern("^(true|True|TRUE|false|False|FALSE)$")
+                .MatchEmptyTags()
+                .Create();
 
             foreach (var format in IntegerMapper.Canonical.Formats)
             {
-                yield return new RegexMatcher(format.Pattern, format.Mapper);
+                yield return NodeMatcher
+                    .ForScalars(format.Mapper)
+                    .MatchPattern(format.Pattern)
+                    .MatchEmptyTags()
+                    .Create();
             }
 
             foreach (var format in FloatingPointMapper.Canonical.Formats)
             {
-                yield return new RegexMatcher(format.Pattern, format.Mapper);
+                yield return NodeMatcher
+                    .ForScalars(format.Mapper)
+                    .MatchPattern(format.Pattern)
+                    .MatchEmptyTags()
+                    .Create();
             }
+
+            yield return NodeMatcher
+                .ForScalars(StringMapper.Default, ScalarStyle.SingleQuoted)
+                .MatchAnyNonSpecificTags()
+                .Create();
+
+            yield return NodeMatcher
+                .ForSequences(SequenceMapper<object>.Default)
+                .MatchAnyNonSpecificTags()
+                .Create();
+
+            yield return NodeMatcher
+                .ForMappings(MappingMapper<object, object>.Default)
+                .MatchAnyNonSpecificTags()
+                .Create();
         }
     }
 }

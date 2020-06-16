@@ -30,11 +30,11 @@ using YamlDotNet.Representation.Schemas;
 
 namespace YamlDotNet.Serialization.Schemas
 {
-    public delegate INodeMatcher NodeMatcherFactory(Type sourceType, Type matchedType, Func<Type, INodeMatcher> nodeMapperLookup);
+    public delegate NodeMatcher NodeMatcherFactory(Type sourceType, Type matchedType, Func<Type, NodeMatcher> nodeMapperLookup);
 
     public sealed class TypeMatcherTable : IEnumerable
     {
-        private readonly ICache<Type, INodeMatcher> nodeMatchersByType;
+        private readonly ICache<Type, NodeMatcher> nodeMatchersByType;
         private readonly ICache<TagName, INodeMapper> nodeMappersByTag;
         private readonly IDictionary<Type, NodeMatcherFactory> nodeMatcherFactories = new Dictionary<Type, NodeMatcherFactory>();
 
@@ -42,22 +42,23 @@ namespace YamlDotNet.Serialization.Schemas
         {
             if (requireThreadSafety)
             {
-                nodeMatchersByType = new ThreadSafeCache<Type, INodeMatcher>();
+                nodeMatchersByType = new ThreadSafeCache<Type, NodeMatcher>();
                 nodeMappersByTag = new ThreadSafeCache<TagName, INodeMapper>();
             }
             else
             {
-                nodeMatchersByType = new SingleThreadCache<Type, INodeMatcher>();
+                nodeMatchersByType = new SingleThreadCache<Type, NodeMatcher>();
                 nodeMappersByTag = new SingleThreadCache<TagName, INodeMapper>();
             }
         }
 
         public void Add(Type type, INodeMapper nodeMapper)
         {
-            Add(type, new NodeKindMatcher(nodeMapper));
+            throw new NotImplementedException("TODO");
+            //Add(type, new NodeKindMatcher(nodeMapper));
         }
 
-        public void Add(Type type, INodeMatcher nodeMatcher)
+        public void Add(Type type, NodeMatcher nodeMatcher)
         {
             nodeMatchersByType.Add(type, nodeMatcher);
             nodeMappersByTag.GetOrAdd(nodeMatcher.Mapper.Tag, () => nodeMatcher.Mapper);
@@ -70,7 +71,7 @@ namespace YamlDotNet.Serialization.Schemas
 
         IEnumerator IEnumerable.GetEnumerator() => throw new NotSupportedException("This class implements IEnumerable only to allow collection initialization.");
 
-        public INodeMatcher GetNodeMatcher(Type type)
+        public NodeMatcher GetNodeMatcher(Type type)
         {
             if (type.IsGenericParameter)
             {

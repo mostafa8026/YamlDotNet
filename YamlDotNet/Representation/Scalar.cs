@@ -28,7 +28,7 @@ using HashCode = YamlDotNet.Core.HashCode;
 
 namespace YamlDotNet.Representation
 {
-    public sealed class Scalar : Node, INodePathSegment
+    public sealed class Scalar : Node, IScalar
     {
         public string Value { get; }
 
@@ -44,8 +44,6 @@ namespace YamlDotNet.Representation
 
         public override NodeKind Kind => NodeKind.Scalar;
         public override IEnumerable<Node> Children => Enumerable.Empty<Node>();
-
-        string INodePathSegment.Value => Value;
 
         public override bool Equals([AllowNull] Node other)
         {

@@ -28,7 +28,7 @@ using HashCode = YamlDotNet.Core.HashCode;
 
 namespace YamlDotNet.Representation
 {
-    public sealed class Sequence : Node, IReadOnlyList<Node>
+    public sealed class Sequence : Node, ISequence, IReadOnlyList<Node>
     {
         private readonly IReadOnlyList<Node> items;
 

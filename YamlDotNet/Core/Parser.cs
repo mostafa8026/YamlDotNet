@@ -24,9 +24,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using YamlDotNet.Core.Tokens;
-using MappingStyle = YamlDotNet.Core.Events.MappingStyle;
 using ParsingEvent = YamlDotNet.Core.Events.ParsingEvent;
-using SequenceStyle = YamlDotNet.Core.Events.SequenceStyle;
 
 namespace YamlDotNet.Core
 {

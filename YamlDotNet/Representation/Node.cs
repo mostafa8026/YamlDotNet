@@ -28,7 +28,7 @@ using HashCode = YamlDotNet.Core.HashCode;
 
 namespace YamlDotNet.Representation
 {
-    public abstract class Node : INodePathSegment, IEquatable<Node>
+    public abstract class Node : INode, IEquatable<Node>
     {
         // Prevent extending this class from outside
         internal Node(INodeMapper mapper, Mark start, Mark end)
@@ -45,8 +45,6 @@ namespace YamlDotNet.Representation
         public Mark End { get; }
 
         public abstract IEnumerable<Node> Children { get; }
-
-        string INodePathSegment.Value => throw new InvalidOperationException("The current node is not a scalar.");
 
         public TNode Expect<TNode>() where TNode : Node
         {

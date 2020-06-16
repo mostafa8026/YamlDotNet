@@ -26,7 +26,7 @@ namespace YamlDotNet.Core.Events
     /// <summary>
     /// Represents a sequence start event.
     /// </summary>
-    public sealed class SequenceStart : CollectionEvent
+    public sealed class SequenceStart : CollectionEvent, ISequence
     {
         /// <summary>
         /// Gets a value indicating the variation of depth caused by this event.

@@ -19,9 +19,7 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-using System;
 using System.Collections.Generic;
-using System.Globalization;
 using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation.Schemas
@@ -36,93 +34,94 @@ namespace YamlDotNet.Representation.Schemas
         /// A version of the <see cref="JsonSchema"/> that conforms strictly to the specification
         /// by not resolving any unrecognized scalars.
         /// </summary>
-        public static readonly ISchema Strict = new CompositeSchema(new ContextFreeSchema(CreateMatchers()), FailsafeSchema.Strict);
+        public static readonly ISchema Strict = new ContextFreeSchema(CreateMatchers(true));
 
         /// <summary>
         /// A version of the <see cref="JsonSchema"/> that treats unrecognized scalars as strings.
         /// </summary>
-        public static readonly ISchema Lenient = new CompositeSchema(new ContextFreeSchema(CreateMatchers()), FailsafeSchema.Lenient);
-        
-        private static readonly NumberFormatInfo NumberFormat = new NumberFormatInfo
+        public static readonly ISchema Lenient = new ContextFreeSchema(CreateMatchers(false));
+
+        private static IEnumerable<NodeMatcher> CreateMatchers(bool strict)
         {
-            NumberDecimalSeparator = ".",
-            NumberGroupSeparator = "_",
-            NumberGroupSizes = new[] { 3 },
-            NumberDecimalDigits = 99,
-            NumberNegativePattern = 1, // -1,234.00
-            NegativeSign = "-",
-            NaNSymbol = ".nan",
-            PositiveInfinitySymbol = ".inf",
-            NegativeInfinitySymbol = "-.inf",
-        };
+            const string NullLiteral = "null";
 
-        // TODO: Node styles
-            //: base(BuildMappingTable(), fallbackTag, ScalarStyle.DoubleQuoted, SequenceStyle.Flow, MappingStyle.Flow) { }
-
-        private static IEnumerable<INodeMatcher> CreateMatchers()
-        {
-            yield return new RegexMatcher(
-                "^null$",
-                NodeMapper.CreateScalarMapper(
-                    YamlTagRepository.Null,
-                    _ => null,
-                    _ => "null"
+            yield return NodeMatcher
+                .ForScalars(
+                    NodeMapper.CreateScalarMapper(
+                        YamlTagRepository.Null,
+                        _ => null,
+                        _ => NullLiteral
+                    )
                 )
-            );
+                .MatchPattern("^null$")
+                .MatchEmptyTags()
+                .Create();
 
-            yield return new RegexMatcher(
-                "^(true|false)$",
-                NodeMapper.CreateScalarMapper(
-                    YamlTagRepository.Boolean,
-                    s => s.Value[0] == 't', // Assumes that the value matches the regex
-                    FormatBoolean
+            yield return NodeMatcher
+                .ForScalars(
+                    NodeMapper.CreateScalarMapper(
+                        YamlTagRepository.Boolean,
+                        s => s.Value[0] == 't', // Assumes that the value matches the regex
+                        FormatBoolean
+                    )
                 )
-            );
+                .MatchPattern("^(true|false)$")
+                .MatchEmptyTags()
+                .Create();
 
-            yield return new RegexMatcher(
-                "^-?(0|[1-9][0-9]*)$",
-                NodeMapper.CreateScalarMapper(
-                    YamlTagRepository.Integer,
-                    s => IntegerParser.ParseBase10(s.Value),
-                    FormatInteger
+            yield return NodeMatcher
+                .ForScalars(
+                    NodeMapper.CreateScalarMapper(
+                        YamlTagRepository.Integer,
+                        s => IntegerParser.ParseBase10(s.Value),
+                        IntegerFormatter.FormatBase10
+                    )
                 )
-            );
+                .MatchPattern("^-?(0|[1-9][0-9]*)$")
+                .MatchEmptyTags()
+                .Create();
 
-            yield return new RegexMatcher(
-                @"^-?(0|[1-9][0-9]*)(\.[0-9]*)?([eE][-+]?[0-9]+)?$",
-                NodeMapper.CreateScalarMapper(
-                    YamlTagRepository.FloatingPoint,
-                    s => FloatingPointParser.ParseBase10Unseparated(s.Value),
-                    FormatInteger
+            yield return NodeMatcher
+                .ForScalars(
+                    NodeMapper.CreateScalarMapper(
+                        YamlTagRepository.FloatingPoint,
+                        s => FloatingPointParser.ParseBase10Unseparated(s.Value),
+                        FloatingPointFormatter.FormatBase10Unseparated
+                    )
                 )
-            );
+                .MatchPattern(@"^-?(0|[1-9][0-9]*)(\.[0-9]*)?([eE][-+]?[0-9]+)?$")
+                .MatchEmptyTags()
+                .Create();
 
-            //yield return new RegexMatcher()
+            yield return NodeMatcher
+                .ForSequences(SequenceMapper<object>.Default, SequenceStyle.Flow)
+                .MatchAnyNonSpecificTags()
+                .Create();
+
+            yield return NodeMatcher
+                .ForMappings(MappingMapper<object, object>.Default, MappingStyle.Flow)
+                .MatchAnyNonSpecificTags()
+                .Create();
+
+            if (strict)
+            {
+                yield return NodeMatcher
+                    .ForScalars(StringMapper.Default, ScalarStyle.DoubleQuoted)
+                    .MatchNonSpecificTags()
+                    .Create();
+            }
+            else
+            {
+                yield return NodeMatcher
+                    .ForScalars(StringMapper.Default, ScalarStyle.DoubleQuoted)
+                    .MatchAnyNonSpecificTags()
+                    .Create();
+            }
         }
 
         internal static string FormatBoolean(object? native)
         {
             return true.Equals(native) ? "true" : "false";
-        }
-
-        internal static string FormatInteger(object? native)
-        {
-            return Convert.ToString(native, NumberFormat)!;
-        }
-
-        internal static string FormatFloatingPoint(object? native)
-        {
-            switch (native)
-            {
-                case double doublePrecision:
-                    return doublePrecision.ToString("0.0###############", NumberFormat);
-
-                case float singlePrecision:
-                    return singlePrecision.ToString("0.0######", NumberFormat);
-
-                default:
-                    return Convert.ToString(native, NumberFormat)!;
-            }
         }
     }
 }

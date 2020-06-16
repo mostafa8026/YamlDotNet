@@ -28,7 +28,7 @@ using HashCode = YamlDotNet.Core.HashCode;
 
 namespace YamlDotNet.Representation
 {
-    public sealed class Mapping : Node, IReadOnlyDictionary<Node, Node>
+    public sealed class Mapping : Node, IMapping, IReadOnlyDictionary<Node, Node>
     {
         private readonly IReadOnlyDictionary<Node, Node> items;
 

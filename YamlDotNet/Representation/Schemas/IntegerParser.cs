@@ -20,6 +20,9 @@
 //  SOFTWARE.
 
 using System;
+using System.Globalization;
+using System.Text;
+using YamlDotNet.Serialization.Utilities;
 
 namespace YamlDotNet.Representation.Schemas
 {
@@ -410,5 +413,293 @@ namespace YamlDotNet.Representation.Schemas
 
             return parsed;
         }
+    }
+
+    internal static class IntegerFormatter
+    {
+        public static string FormatBase10(object? native)
+        {
+            return Convert.ToString(native, NumberFormat.Default)!;
+        }
+
+        public static string FormatBase2Signed(object? native)
+        {
+            var value = Convert.ToInt64(native);
+
+            if (value == 0)
+            {
+                return "0b0";
+            }
+
+            var isNegative = value < 0;
+            var absoluteValue = isNegative ?
+                ~(ulong)value + 1UL
+                : (ulong)value;
+
+            const int digits = 64 + 2 + 1;
+            var text = new char[digits];
+            var idx = FormatBase2Unsigned(absoluteValue, text);
+
+            text[--idx] = 'b';
+            text[--idx] = '0';
+            if (isNegative)
+            {
+                text[--idx] = '-';
+            }
+
+            return new string(text, idx, digits - idx);
+        }
+
+        private static int FormatBase2Unsigned(ulong value, char[] text)
+        {
+            var idx = text.Length;
+            var block = (uint)value;
+            if (value > 0xFFFFFFFFUL)
+            {
+                for (int i = 0; i < 32; ++i)
+                {
+                    --idx;
+
+                    var chr = (block & 1) + '0';
+                    text[idx] = (char)chr;
+                    block >>= 1;
+                }
+
+                block = (uint)(value >> 32);
+            }
+
+            while (block != 0)
+            {
+                --idx;
+
+                var chr = (block & 1) + '0';
+                text[idx] = (char)chr;
+                block >>= 1;
+            }
+
+            return idx;
+        }
+
+        public static string FormatBase8Unsigned(object? native)
+        {
+            var value = Convert.ToUInt64(native);
+
+            if (value == 0)
+            {
+                return "0o0";
+            }
+
+            const int digits = 22 + 2;
+            var text = new char[digits];
+            var idx = FormatBase8Unsigned(value, text);
+
+            text[--idx] = 'o';
+            text[--idx] = '0';
+
+            return new string(text, idx, digits - idx);
+        }
+
+        public static string FormatBase8Signed(object? native)
+        {
+            var value = Convert.ToInt64(native);
+
+            if (value == 0)
+            {
+                return "0o0";
+            }
+
+            var isNegative = value < 0;
+            var absoluteValue = isNegative ?
+                ~(ulong)value + 1UL
+                : (ulong)value;
+
+            const int digits = 22 + 2 + 1;
+            var text = new char[digits];
+            var idx = FormatBase8Unsigned(absoluteValue, text);
+
+            text[--idx] = 'o';
+            text[--idx] = '0';
+            if (isNegative)
+            {
+                text[--idx] = '-';
+            }
+
+            return new string(text, idx, digits - idx);
+        }
+
+        private static int FormatBase8Unsigned(ulong value, char[] text)
+        {
+            var idx = text.Length;
+
+            var block = (uint)value & 0x00FFFFFFU;
+            while (value > 0x00FFFFFFUL)
+            {
+                for (int i = 0; i < 8; ++i)
+                {
+                    --idx;
+                    text[idx] = (char)(block % 8 + '0');
+                    block /= 8;
+                }
+
+                value >>= 24;
+                block = (uint)value & 0x00FFFFFFU;
+            }
+
+            while (block != 0)
+            {
+                --idx;
+                text[idx] = (char)(block % 8 + '0');
+                block /= 8;
+            }
+
+            return idx;
+        }
+
+        public static string FormatBase16Unsigned(object? native)
+        {
+            var value = Convert.ToUInt64(native);
+            if (value == 0)
+            {
+                return "0x0";
+            }
+
+            const int digits = 16 + 2;
+            var text = new char[digits];
+            var idx = FormatBase16Unsigned(value, text);
+
+            text[--idx] = 'x';
+            text[--idx] = '0';
+
+            return new string(text, idx, digits - idx);
+        }
+
+        public static string FormatBase16Signed(object? native)
+        {
+            var value = Convert.ToInt64(native);
+
+            if (value == 0)
+            {
+                return "0x0";
+            }
+
+            var isNegative = value < 0;
+            var absoluteValue = isNegative ?
+                ~(ulong)value + 1UL
+                : (ulong)value;
+
+            const int digits = 16 + 2 + 1;
+            var text = new char[digits];
+            var idx = FormatBase16Unsigned(absoluteValue, text);
+
+            text[--idx] = 'x';
+            text[--idx] = '0';
+            if (isNegative)
+            {
+                text[--idx] = '-';
+            }
+
+            return new string(text, idx, digits - idx);
+        }
+
+        private static int FormatBase16Unsigned(ulong value, char[] text)
+        {
+            var idx = text.Length;
+            var block = (uint)value;
+            if (value > 0xFFFFFFFFUL)
+            {
+                for (int i = 0; i < 8; ++i)
+                {
+                    --idx;
+
+                    var chr = (block & 0xFU) + '0';
+                    if (chr > '9')
+                    {
+                        chr += 'A' - '9' - 1;
+                    }
+
+                    text[idx] = (char)chr;
+                    block /= 16;
+                }
+
+                block = (uint)(value >> 32);
+            }
+
+            while (block != 0)
+            {
+                --idx;
+
+                var chr = (block & 0xFU) + '0';
+                if (chr > '9')
+                {
+                    chr += 'A' - '9' - 1;
+                }
+
+                text[idx] = (char)chr;
+                block /= 16;
+            }
+
+            return idx;
+        }
+
+        public static string FormatBase60Signed(object? native)
+        {
+            var value = Convert.ToInt64(native);
+
+            if (value == 0)
+            {
+                return "0";
+            }
+
+            var isNegative = value < 0;
+            var absoluteValue = isNegative ?
+                ~(ulong)value + 1UL
+                : (ulong)value;
+
+            const int digits = 32 + 1;
+            var text = new char[digits];
+            var idx = digits;
+            while (true)
+            {
+                var segment = (int)(absoluteValue % 60);
+                if (segment > 10)
+                {
+                    text[--idx] = (char)(segment % 10 + '0');
+                    segment /= 10;
+                }
+                text[--idx] = (char)(segment + '0');
+
+                absoluteValue /= 60;
+                if (absoluteValue == 0)
+                {
+                    break;
+                }
+
+                text[--idx] = ':';
+            }
+
+            if (isNegative)
+            {
+                text[--idx] = '-';
+            }
+
+            return new string(text, idx, digits - idx);
+        }
+    }
+
+    internal static class NumberFormat
+    {
+        public static readonly NumberFormatInfo Default = new NumberFormatInfo
+        {
+            NumberDecimalSeparator = ".",
+            NumberGroupSeparator = "_",
+            NumberGroupSizes = new[] { 3 },
+            NumberDecimalDigits = 16,
+            NumberNegativePattern = 1, // -1,234.00
+            NegativeSign = "-",
+            PositiveSign = "+",
+            NaNSymbol = ".nan",
+            PositiveInfinitySymbol = ".inf",
+            NegativeInfinitySymbol = "-.inf",
+        };
     }
 }

@@ -24,7 +24,7 @@ namespace YamlDotNet.Core.Events
     /// <summary>
     /// Represents a scalar event.
     /// </summary>
-    public sealed class Scalar : NodeEvent, INodePathSegment
+    public sealed class Scalar : NodeEvent, IScalar
     {
         /// <summary>
         /// Gets the event type, which allows for simpler type comparisons.
@@ -119,6 +119,5 @@ namespace YamlDotNet.Core.Events
         }
 
         public override NodeKind Kind => NodeKind.Scalar;
-        string INodePathSegment.Value => Value;
     }
 }

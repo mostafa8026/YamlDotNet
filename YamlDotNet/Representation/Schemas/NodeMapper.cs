@@ -66,6 +66,8 @@ namespace YamlDotNet.Representation.Schemas
 
             public object? Construct(Node node) => constructor(node);
             public Node Represent(object? native, ISchema schema, NodePath currentPath) => representer(native, this);
+
+            public override string ToString() => Tag.ToString();
         }
 
         public static INodeMapper CreateScalarMapper(TagName tag, Func<Scalar, object?> constructor, Func<object?, string> representer, INodeMapper? canonical = null)

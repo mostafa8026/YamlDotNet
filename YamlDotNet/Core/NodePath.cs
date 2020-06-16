@@ -27,10 +27,10 @@ namespace YamlDotNet.Core
     public sealed class NodePath
     {
         const int initialCapacity = 50;
-        private INodePathSegment[] currentPath = new INodePathSegment[initialCapacity];
+        private INode[] currentPath = new INode[initialCapacity];
         private int count = 0;
 
-        public IDisposable Push(INodePathSegment segment)
+        public IDisposable Push(INode segment)
         {
             if (count == currentPath.Length)
             {
@@ -70,10 +70,10 @@ namespace YamlDotNet.Core
             --count;
         }
 
-        public IEnumerable<INodePathSegment> GetCurrentPath()
+        public IEnumerable<INode> GetCurrentPath()
         {
             // TODO: Evaluate whether this is the best approach
-            var snapshot = new INodePathSegment[count];
+            var snapshot = new INode[count];
             Array.Copy(currentPath, 0, snapshot, 0, count);
             return snapshot;
         }

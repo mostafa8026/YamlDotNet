@@ -36,8 +36,7 @@ namespace YamlDotNet.Representation
     {
         public static IEnumerable<Document> Load(string yaml, Func<DocumentStart, ISchema> schemaSelector)
         {
-            using var reader = new StringReader(yaml);
-            return Load(new Parser(reader), schemaSelector);
+            return Load(new Parser(new StringReader(yaml)), schemaSelector);
         }
 
         public static IEnumerable<Document> Load(IParser parser, Func<DocumentStart, ISchema> schemaSelector)
@@ -51,11 +50,6 @@ namespace YamlDotNet.Representation
 
                     var loader = new NodeLoader(parser);
                     var node = loader.LoadNode(schema.Root, out _);
-
-                    //var content = parser.Consume<NodeEvent>();
-                    //var node = content.Accept(loader);
-
-
 
                     parser.Consume<DocumentEnd>();
                     yield return new Document(node, schema);
@@ -244,7 +238,7 @@ namespace YamlDotNet.Representation
                 this.anchors = anchors ?? throw new ArgumentNullException(nameof(anchors));
             }
 
-            public void Dump(Node node, ISchemaIterator iterator, out ISchemaIterator? childIterator)
+            public void Dump(Node node, ISchemaIterator iterator, out ISchemaIterator childIterator)
             {
                 switch (node)
                 {

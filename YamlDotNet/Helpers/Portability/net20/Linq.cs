@@ -239,6 +239,18 @@ namespace System.Linq
             return sequence.Where(predicate).Any();
         }
 
+        public static bool All<T>(this IEnumerable<T> sequence, Func<T, bool> predicate)
+        {
+            foreach (var item in sequence)
+            {
+                if (!predicate(item))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public static int Count<T>(this IEnumerable<T> sequence)
         {
             var count = 0;

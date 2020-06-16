@@ -140,9 +140,7 @@ namespace YamlDotNet.Test.Spec
                 throw new KeyNotFoundException($"Schema '{schemaId}' not found");
             }
 
-            using var reader = new StringReader("--- " + inputYaml);
-
-            var document = Stream.Load(new Parser(reader), _ => schema).Single();
+            var document = Stream.Load("--- " + inputYaml, _ => schema).Single();
 
             var actual = (YamlDotNet.Representation.Scalar)document.Content;
 
@@ -191,15 +189,12 @@ namespace YamlDotNet.Test.Spec
             // Check dumped value
             var dumpedScalar = actual.Mapper.Represent(actualLoadedValue, schema, new NodePath());
 
-            var buffer = new StringWriter();
-            Stream.Dump(new Emitter(buffer), new[] { new Document(dumpedScalar, schema) }, explicitSeparators: true);
-            var emittedYaml = buffer.ToString();
+            var emittedYaml = Stream.Dump(new[] { new Document(dumpedScalar, schema) }, explicitSeparators: true);
 
-            // TODO
-            //if (schema is JsonSchema)
-            //{
-            //    dumpedYaml = dumpedYaml.Replace('\'', '"');
-            //}
+            if (schemaId == "json")
+            {
+                dumpedYaml = dumpedYaml.Replace('\'', '"');
+            }
             Assert.Equal("--- " + dumpedYaml + Environment.NewLine + "..." + Environment.NewLine, emittedYaml);
         }
     }

@@ -1,4 +1,4 @@
-﻿//  This file is part of YamlDotNet - A .NET library for YAML.
+//  This file is part of YamlDotNet - A .NET library for YAML.
 //  Copyright (c) Antoine Aubry and contributors
 
 //  Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -19,26 +19,26 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-using System;
-
 namespace YamlDotNet.Core
 {
-    public interface INodePathSegment
+    /// <summary>
+    /// Specifies the style of a sequence.
+    /// </summary>
+    public enum SequenceStyle
     {
         /// <summary>
-        /// The kind of segment.
+        /// Let the emitter choose the style.
         /// </summary>
-        NodeKind Kind { get; }
+        Any,
 
         /// <summary>
-        /// The tag of this node.
+        /// The block sequence style.
         /// </summary>
-        TagName Tag { get; }
+        Block,
 
         /// <summary>
-        /// The scalar value of the node, if this represents a scalar.
+        /// The flow sequence style.
         /// </summary>
-        /// <exception cref="InvalidOperationException">Thrown when this node does not represent a scalar.</exception>
-        string Value { get; }
+        Flow
     }
 }

@@ -26,23 +26,16 @@ namespace YamlDotNet.Representation.Schemas
 {
     internal static class FloatingPointParser
     {
-        private static readonly IFormatProvider format = new NumberFormatInfo
-        {
-            NegativeSign = "-",
-            PositiveSign = "+",
-            NumberDecimalSeparator = ".",
-        };
-
         // Assumes that value has the form: ^[-+]?([0-9][0-9]*)?\.[0-9]*([eE][-+][0-9]+)?$
         public static double ParseBase10Unseparated(string value)
         {
-            return double.Parse(value, format);
+            return double.Parse(value, NumberFormat.Default);
         }
 
         // Assumes that value has the form: ^[-+]?([0-9][0-9_]*)?\.[0-9_]*([eE][-+][0-9]+)?$
         public static double ParseBase10Separated(string value)
         {
-            return double.Parse(value.Replace("_", ""), format);
+            return double.Parse(value.Replace("_", ""), NumberFormat.Default);
         }
 
         // Assumes that value has the form: ^[-+]?[0-9][0-9_]*(:[0-5]?[0-9])+\.[0-9_]*$
@@ -59,6 +52,58 @@ namespace YamlDotNet.Representation.Schemas
             return isPositive
                 ? integralPart + fractionalPart
                 : integralPart - fractionalPart;
+        }
+    }
+
+    internal static class FloatingPointFormatter
+    {
+        public static string FormatBase10Unseparated(object? native)
+        {
+            switch (native)
+            {
+                case double doublePrecision:
+                    return doublePrecision.ToString("0.0###############", NumberFormat.Default);
+
+                case float singlePrecision:
+                    return singlePrecision.ToString("0.0######", NumberFormat.Default);
+
+                default:
+                    return Convert.ToString(native, NumberFormat.Default)!;
+            }
+        }
+
+        public static string FormatBase10Separated(object? native)
+        {
+            switch (native)
+            {
+                case double doublePrecision:
+                    return doublePrecision.ToString("#,0.0###############", NumberFormat.Default);
+
+                case float singlePrecision:
+                    return singlePrecision.ToString("#,0.0######", NumberFormat.Default);
+
+                default:
+                    return Convert.ToString(native, NumberFormat.Default)!;
+            }
+        }
+
+
+        public static string FormatBase60(object? native)
+        {
+            long integralPart;
+            switch (native)
+            {
+                case double doublePrecision:
+                    integralPart = checked((long)doublePrecision);
+                    return integralPart + (doublePrecision % 1).ToString(".0###############", NumberFormat.Default);
+
+                case float singlePrecision:
+                    integralPart = checked((long)singlePrecision);
+                    return integralPart + (singlePrecision % 1).ToString(".0######", NumberFormat.Default);
+
+                default:
+                    return Convert.ToString(native, NumberFormat.Default)!;
+            }
         }
     }
 }

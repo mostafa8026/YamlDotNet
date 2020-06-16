@@ -20,7 +20,6 @@
 //  SOFTWARE.
 
 using System.Collections.Generic;
-using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation.Schemas
 {
@@ -40,18 +39,31 @@ namespace YamlDotNet.Representation.Schemas
         /// </summary>
         public static readonly ISchema Lenient = new ContextFreeSchema(CreateMatchers(false));
 
-        private static IEnumerable<INodeMatcher> CreateMatchers(bool strict)
+        private static IEnumerable<NodeMatcher> CreateMatchers(bool strict)
         {
-            yield return new NonSpecificTagMatcher(SequenceMapper<object>.Default);
-            yield return new NonSpecificTagMatcher(MappingMapper<object, object>.Default);
+            yield return NodeMatcher
+                .ForSequences(SequenceMapper<object>.Default)
+                .MatchAnyNonSpecificTags()
+                .Create();
+
+            yield return NodeMatcher
+                .ForMappings(MappingMapper<object, object>.Default)
+                .MatchAnyNonSpecificTags()
+                .Create();
 
             if (strict)
             {
-                yield return new TagMatcher(TagName.NonSpecific, StringMapper.Default);
+                yield return NodeMatcher
+                    .ForScalars(StringMapper.Default)
+                    .MatchNonSpecificTags()
+                    .Create();
             }
             else
             {
-                yield return new NonSpecificTagMatcher(StringMapper.Default);
+                yield return NodeMatcher
+                    .ForScalars(StringMapper.Default)
+                    .MatchAnyNonSpecificTags()
+                    .Create();
             }
         }
     }

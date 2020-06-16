@@ -19,14 +19,12 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-using System;
-
 namespace YamlDotNet.Core.Events
 {
     /// <summary>
     /// Contains the behavior that is common between node events.
     /// </summary>
-    public abstract class NodeEvent : ParsingEvent, INodePathSegment
+    public abstract class NodeEvent : ParsingEvent, INode
     {
         /// <summary>
         /// Gets the anchor.
@@ -63,6 +61,5 @@ namespace YamlDotNet.Core.Events
         }
 
         public abstract NodeKind Kind { get; }
-        string INodePathSegment.Value => throw new InvalidOperationException("The current node is not a scalar.");
     }
 }

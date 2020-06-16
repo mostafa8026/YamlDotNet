@@ -1,4 +1,4 @@
-//  This file is part of YamlDotNet - A .NET library for YAML.
+﻿//  This file is part of YamlDotNet - A .NET library for YAML.
 //  Copyright (c) Antoine Aubry and contributors
 
 //  Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -19,26 +19,34 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-namespace YamlDotNet.Core.Events
+namespace YamlDotNet.Core
 {
-    /// <summary>
-    /// Specifies the style of a mapping.
-    /// </summary>
-    public enum MappingStyle
+    public interface INode
     {
         /// <summary>
-        /// Let the emitter choose the style.
+        /// The kind of segment.
         /// </summary>
-        Any,
+        NodeKind Kind { get; }
 
         /// <summary>
-        /// The block mapping style.
+        /// The tag of this node.
         /// </summary>
-        Block,
+        TagName Tag { get; }
+    }
 
+    public interface IScalar : INode
+    {
         /// <summary>
-        /// The flow mapping style.
+        /// The scalar value of the node.
         /// </summary>
-        Flow
+        string Value { get; }
+    }
+
+    public interface ISequence : INode
+    {
+    }
+
+    public interface IMapping : INode
+    {
     }
 }

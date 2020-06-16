@@ -30,7 +30,7 @@ namespace YamlDotNet.Representation.Schemas
 {
     public sealed class ContextFreeSchema : ISchema
     {
-        public ContextFreeSchema(IEnumerable<INodeMatcher> matchers)
+        public ContextFreeSchema(IEnumerable<NodeMatcher> matchers)
         {
             Root = new Iterator(matchers);
         }
@@ -39,11 +39,11 @@ namespace YamlDotNet.Representation.Schemas
 
         private sealed class Iterator : ISchemaIterator
         {
-            private readonly IEnumerable<INodeMatcher> matchers;
-            private readonly ILookup<TagName, INodeMatcher> matchersByTag;
+            private readonly IEnumerable<NodeMatcher> matchers;
+            private readonly ILookup<TagName, NodeMatcher> matchersByTag;
             private readonly IDictionary<TagName, INodeMapper> knownTags;
 
-            public Iterator(IEnumerable<INodeMatcher> matchers)
+            public Iterator(IEnumerable<NodeMatcher> matchers)
             {
                 if (matchers is null)
                 {
@@ -85,7 +85,7 @@ namespace YamlDotNet.Representation.Schemas
                     {
                         if (matcher.Matches(node))
                         {
-                            mapper = matcher.Mapper;
+                            mapper = matcher.Mapper.Canonical;
                             return true;
                         }
                     }
@@ -96,50 +96,66 @@ namespace YamlDotNet.Representation.Schemas
 
             public bool IsTagImplicit(Scalar scalar, out ScalarStyle style)
             {
-                foreach (var matcher in matchersByTag[scalar.Tag])
+                var plainAllowed = scalar.Value.Length > 0;
+                foreach (var matcher in matchers)
                 {
-                    if (matcher.Matches(scalar))
+                    if (matcher is ScalarMatcher scalarMatcher && scalarMatcher.MatchesContent(scalar))
                     {
-                        // TODO: Style
-                        style = default;
-                        return true;
+                        if (matcher.Mapper.Tag.Equals(scalar.Tag))
+                        {
+                            style = plainAllowed
+                                ? ScalarStyle.Plain
+                                : scalarMatcher.SuggestedStyle;
+
+                            return true;
+                        }
+                        else
+                        {
+                            // Is this scalar would be matched by a matcher for another tag,
+                            // we can't allow the plain style.
+                            plainAllowed = false;
+                        }
                     }
                 }
 
                 style = default;
-                return true;
+                return false;
+            }
+
+            private sealed class NonSpecificScalar : IScalar
+            {
+                public NonSpecificScalar(string value)
+                {
+                    Value = value;
+                }
+
+                public string Value { get; }
+                public NodeKind Kind => NodeKind.Scalar;
+                public TagName Tag => TagName.Empty;
             }
 
             public bool IsTagImplicit(Sequence sequence, out SequenceStyle style)
             {
-                foreach (var matcher in matchersByTag[sequence.Tag])
+                foreach (SequenceMatcher matcher in matchersByTag[sequence.Tag])
                 {
-                    if (matcher.Matches(sequence))
-                    {
-                        // TODO: Style
-                        style = default;
-                        return true;
-                    }
+                    style = matcher.SuggestedStyle;
+                    return true;
                 }
 
                 style = default;
-                return true;
+                return false;
             }
 
             public bool IsTagImplicit(Mapping mapping, out MappingStyle style)
             {
-                foreach (var matcher in matchersByTag[mapping.Tag])
+                foreach (MappingMatcher matcher in matchersByTag[mapping.Tag])
                 {
-                    if (matcher.Matches(mapping))
-                    {
-                        // TODO: Style
-                        style = default;
-                        return true;
-                    }
+                    style = matcher.SuggestedStyle;
+                    return true;
                 }
 
                 style = default;
-                return true;
+                return false;
             }
         }
     }
