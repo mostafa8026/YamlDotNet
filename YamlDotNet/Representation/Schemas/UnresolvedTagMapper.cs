@@ -21,6 +21,7 @@
 
 using System;
 using YamlDotNet.Core;
+using YamlDotNet.Serialization.Utilities;
 
 namespace YamlDotNet.Representation.Schemas
 {
@@ -38,11 +39,18 @@ namespace YamlDotNet.Representation.Schemas
 
         public object? Construct(Node node)
         {
-            throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
+            return node is Scalar scalar
+                ? scalar.Value
+                : throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
         }
 
         public Node Represent(object? native, ISchema schema, NodePath currentPath)
         {
+            if (MappedNodeKind == NodeKind.Scalar)
+            {
+                return new Scalar(this, TypeConverter.ChangeType<string>(native));
+            }
+
             throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
         }
     }

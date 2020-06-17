@@ -24,7 +24,6 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using YamlDotNet.Core;
-using YamlDotNet.Core.Events;
 
 namespace YamlDotNet.Representation.Schemas
 {
@@ -72,12 +71,12 @@ namespace YamlDotNet.Representation.Schemas
                 }
             }
 
-            public ISchemaIterator EnterScalar(TagName tag, string value) => this;
-            public ISchemaIterator EnterSequence(TagName tag) => this;
-            public ISchemaIterator EnterMapping(TagName tag) => this;
+            public ISchemaIterator EnterScalar(IScalar scalar) => this;
+            public ISchemaIterator EnterSequence(ISequence sequence) => this;
+            public ISchemaIterator EnterMapping(IMapping mapping) => this;
             public ISchemaIterator EnterMappingValue() => this;
 
-            public bool TryResolveMapper(NodeEvent node, [NotNullWhen(true)] out INodeMapper? mapper)
+            public bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper)
             {
                 if (node.Tag.IsNonSpecific)
                 {
@@ -94,7 +93,7 @@ namespace YamlDotNet.Representation.Schemas
                 return knownTags.TryGetValue(node.Tag, out mapper);
             }
 
-            public bool IsTagImplicit(Scalar scalar, out ScalarStyle style)
+            public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
             {
                 var plainAllowed = scalar.Value.Length > 0;
                 foreach (var matcher in matchers)
@@ -134,7 +133,7 @@ namespace YamlDotNet.Representation.Schemas
                 public TagName Tag => TagName.Empty;
             }
 
-            public bool IsTagImplicit(Sequence sequence, out SequenceStyle style)
+            public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
             {
                 foreach (SequenceMatcher matcher in matchersByTag[sequence.Tag])
                 {
@@ -146,7 +145,7 @@ namespace YamlDotNet.Representation.Schemas
                 return false;
             }
 
-            public bool IsTagImplicit(Mapping mapping, out MappingStyle style)
+            public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
             {
                 foreach (MappingMatcher matcher in matchersByTag[mapping.Tag])
                 {

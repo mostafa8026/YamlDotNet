@@ -99,141 +99,196 @@ namespace YamlDotNet.Representation.Schemas
 
         public abstract void AddStringRepresentation(StringBuilder output);
 
-        public static IScalarNodeMatcherBuilderSyntax ForScalars(INodeMapper mapper, ScalarStyle suggestedStyle = ScalarStyle.Any)
+        public static INodeMatcherBuilderSyntax<IScalar, ScalarMatcher> ForScalars(INodeMapper mapper, ScalarStyle suggestedStyle = ScalarStyle.Any)
         {
-            return new ScalarMatcherBuilderSyntax(mapper, suggestedStyle);
+            if (mapper is null)
+            {
+                throw new ArgumentNullException(nameof(mapper));
+            }
+
+            Invariants.ValidEnum(suggestedStyle, nameof(suggestedStyle));
+
+            return new NodeMatcherBuilderSyntax<IScalar, ScalarMatcher>(predicates => new ScalarMatcher(mapper, suggestedStyle, predicates));
         }
 
         public static INodeMatcherBuilderSyntax<ISequence, SequenceMatcher> ForSequences(INodeMapper mapper, SequenceStyle suggestedStyle = SequenceStyle.Any)
         {
-            return new SequenceMatcherBuilderSyntax(mapper, suggestedStyle);
+            if (mapper is null)
+            {
+                throw new ArgumentNullException(nameof(mapper));
+            }
+
+            Invariants.ValidEnum(suggestedStyle, nameof(suggestedStyle));
+
+            return new NodeMatcherBuilderSyntax<ISequence, SequenceMatcher>(predicates => new SequenceMatcher(mapper, suggestedStyle, predicates));
         }
 
         public static INodeMatcherBuilderSyntax<IMapping, MappingMatcher> ForMappings(INodeMapper mapper, MappingStyle suggestedStyle = MappingStyle.Any)
         {
-            return new MappingMatcherBuilderSyntax(mapper, suggestedStyle);
+            if (mapper is null)
+            {
+                throw new ArgumentNullException(nameof(mapper));
+            }
+
+            Invariants.ValidEnum(suggestedStyle, nameof(suggestedStyle));
+
+            return new NodeMatcherBuilderSyntax<IMapping, MappingMatcher>(predicates => new MappingMatcher(mapper, suggestedStyle, predicates));
         }
 
-        private abstract class NodeMatcherBuilderSyntax<TNode, TMatcher, TStyle> : INodeMatcherBuilderSyntax<TNode, TMatcher>
+        private sealed class NodeMatcherBuilderSyntax<TNode, TMatcher> : INodeMatcherBuilderSyntax<TNode, TMatcher>
             where TNode : class, INode
-            where TStyle : Enum
         {
             private readonly List<INodePredicate<TNode>> predicates = new List<INodePredicate<TNode>>();
-            private readonly INodeMapper mapper;
-            private readonly TStyle suggestedStyle;
+            private readonly Func<IEnumerable<INodePredicate<TNode>>, TMatcher> factory;
 
-            public NodeMatcherBuilderSyntax(INodeMapper mapper, TStyle suggestedStyle)
+            public NodeMatcherBuilderSyntax(Func<IEnumerable<INodePredicate<TNode>>, TMatcher> factory)
             {
-                this.mapper = mapper;
-                this.suggestedStyle = suggestedStyle;
+                this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
             }
 
-            protected void AddPredicate(INodePredicate<TNode> predicate)
-            {
-                predicates.Add(predicate);
-            }
-
-            public INodeMatcherBuilderSyntax<TNode, TMatcher> MatchNonSpecificTags()
-            {
-                AddPredicate(NonSpecificTagMatcher.Instance);
-                return this;
-            }
-
-            public INodeMatcherBuilderSyntax<TNode, TMatcher> MatchEmptyTags()
-            {
-                AddPredicate(EmptyTagMatcher.Instance);
-                return this;
-            }
-
-            public INodeMatcherBuilderSyntax<TNode, TMatcher> MatchAnyNonSpecificTags()
-            {
-                AddPredicate(AnyNonSpecificTagMatcher.Instance);
-                return this;
-            }
-
-            public INodeMatcherBuilderSyntax<TNode, TMatcher> MatchTag(TagName expectedTag)
-            {
-                AddPredicate(new TagMatcher(expectedTag));
-                return this;
-            }
-
-            public TMatcher Create() => Create(mapper, suggestedStyle, predicates);
-
-            protected abstract TMatcher Create(INodeMapper mapper, TStyle suggestedStyle, IEnumerable<INodePredicate<TNode>> predicates);
-        }
-
-        private sealed class ScalarMatcherBuilderSyntax : NodeMatcherBuilderSyntax<IScalar, ScalarMatcher, ScalarStyle>, IScalarNodeMatcherBuilderSyntax
-        {
-            public ScalarMatcherBuilderSyntax(INodeMapper mapper, ScalarStyle suggestedStyle)
-                : base(mapper, suggestedStyle)
-            {
-            }
-
-            public INodeMatcherBuilderSyntax<IScalar, ScalarMatcher> MatchPattern(string pattern)
-            {
-                return MatchPattern(new Regex(pattern, StandardRegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture));
-            }
-
-            public INodeMatcherBuilderSyntax<IScalar, ScalarMatcher> MatchPattern(Regex pattern)
-            {
-                AddPredicate(new RegexMatcher(pattern));
-                return this;
-            }
-
-            public INodeMatcherBuilderSyntax<IScalar, ScalarMatcher> MatchValue(string expectedValue)
-            {
-                AddPredicate(new ScalarValueMatcher(expectedValue));
-                return this;
-            }
-
-            protected override ScalarMatcher Create(INodeMapper mapper, ScalarStyle suggestedStyle, IEnumerable<INodePredicate<IScalar>> predicates)
-            {
-                return new ScalarMatcher(mapper, suggestedStyle, predicates);
-            }
-        }
-
-        private sealed class SequenceMatcherBuilderSyntax : NodeMatcherBuilderSyntax<ISequence, SequenceMatcher, SequenceStyle>
-        {
-            public SequenceMatcherBuilderSyntax(INodeMapper mapper, SequenceStyle suggestedStyle)
-                : base(mapper, suggestedStyle)
-            {
-            }
-
-            protected override SequenceMatcher Create(INodeMapper mapper, SequenceStyle suggestedStyle, IEnumerable<INodePredicate<ISequence>> predicates)
-            {
-                return new SequenceMatcher(mapper, suggestedStyle, predicates);
-            }
-        }
-
-        private sealed class MappingMatcherBuilderSyntax : NodeMatcherBuilderSyntax<IMapping, MappingMatcher, MappingStyle>
-        {
-            public MappingMatcherBuilderSyntax(INodeMapper mapper, MappingStyle suggestedStyle)
-                : base(mapper, suggestedStyle)
-            {
-            }
-
-            protected override MappingMatcher Create(INodeMapper mapper, MappingStyle suggestedStyle, IEnumerable<INodePredicate<IMapping>> predicates)
-            {
-                return new MappingMatcher(mapper, suggestedStyle, predicates);
-            }
+            public void AddPredicate(INodePredicate<TNode> predicate) => predicates.Add(predicate);
+            public void AddPredicate(INodePredicate<INode> predicate) => predicates.Add(predicate);
+            public TMatcher Create() => factory(predicates);
         }
     }
 
-    public interface IScalarNodeMatcherBuilderSyntax : INodeMatcherBuilderSyntax<IScalar, ScalarMatcher>
+    public interface INodeMatcherBuilderSyntax
     {
-        INodeMatcherBuilderSyntax<IScalar, ScalarMatcher> MatchValue(string expectedValue);
-        INodeMatcherBuilderSyntax<IScalar, ScalarMatcher> MatchPattern(string pattern);
-        INodeMatcherBuilderSyntax<IScalar, ScalarMatcher> MatchPattern(Regex pattern);
+        void AddPredicate(INodePredicate<INode> predicate);
     }
 
-    public interface INodeMatcherBuilderSyntax<TNode, TMatcher>
+    public interface INodeMatcherBuilderSyntax<out TNode> : INodeMatcherBuilderSyntax
+        where TNode : class, INode
     {
-        INodeMatcherBuilderSyntax<TNode, TMatcher> MatchTag(TagName expectedTag);
-        INodeMatcherBuilderSyntax<TNode, TMatcher> MatchNonSpecificTags();
-        INodeMatcherBuilderSyntax<TNode, TMatcher> MatchEmptyTags();
-        INodeMatcherBuilderSyntax<TNode, TMatcher> MatchAnyNonSpecificTags();
+        void AddPredicate(INodePredicate<TNode> predicate);
+    }
 
+    public interface INodeMatcherBuilderSyntax<out TNode, TMatcher> : INodeMatcherBuilderSyntax<TNode>
+        where TNode : class, INode
+    {
         TMatcher Create();
+    }
+
+    public static class NodeMatcherBuilderSyntaxExtensions
+    {
+        public static TSyntax MatchTag<TSyntax>(this TSyntax syntax, TagName expectedTag)
+            where TSyntax : INodeMatcherBuilderSyntax
+        {
+            syntax.AddPredicate(new TagMatcher(expectedTag));
+            return syntax;
+        }
+
+        public static TSyntax MatchNonSpecificTags<TSyntax>(this TSyntax syntax)
+            where TSyntax : INodeMatcherBuilderSyntax
+        {
+            syntax.AddPredicate(NonSpecificTagMatcher.Instance);
+            return syntax;
+        }
+
+        public static TSyntax MatchEmptyTags<TSyntax>(this TSyntax syntax)
+            where TSyntax : INodeMatcherBuilderSyntax
+        {
+            syntax.AddPredicate(EmptyTagMatcher.Instance);
+            return syntax;
+        }
+
+        public static TSyntax MatchAnyNonSpecificTags<TSyntax>(this TSyntax syntax)
+            where TSyntax : INodeMatcherBuilderSyntax
+        {
+            syntax.AddPredicate(AnyNonSpecificTagMatcher.Instance);
+            return syntax;
+        }
+
+        private sealed class ChildNodeMatcherBuilderSyntax<TNode> : INodeMatcherBuilderSyntax<TNode>, INodePredicate<TNode>
+            where TNode : class, INode
+        {
+            private readonly List<INodePredicate<TNode>> predicates = new List<INodePredicate<TNode>>();
+
+            public void AddPredicate(INodePredicate<TNode> predicate) => predicates.Add(predicate);
+            public void AddPredicate(INodePredicate<INode> predicate) => predicates.Add(predicate);
+
+            public bool Matches(TNode node) => predicates.All(p => p.Matches(node));
+
+            public override string ToString()
+            {
+                var text = new StringBuilder();
+                foreach (var predicate in predicates)
+                {
+                    text.Append(predicate);
+                    text.Append(", ");
+                }
+                if (text.Length > 2)
+                {
+                    text.Length -= 2; // Remove the last ", "
+                }
+                return text.ToString();
+            }
+        }
+
+        public static INodeMatcherBuilderSyntax Either(this INodeMatcherBuilderSyntax syntax, params Func<INodeMatcherBuilderSyntax, INodeMatcherBuilderSyntax>[] choices)
+        {
+            var predicates = choices
+                .Select(c =>
+                {
+                    var childSyntax = new ChildNodeMatcherBuilderSyntax<INode>();
+                    c(childSyntax);
+                    return (INodePredicate<INode>)childSyntax;
+                });
+
+            syntax.AddPredicate(new EitherMatcher<INode>(predicates));
+            return syntax;
+        }
+
+        public static INodeMatcherBuilderSyntax<INode, ScalarMatcher> Either(this INodeMatcherBuilderSyntax<IScalar, ScalarMatcher> syntax, params Func<INodeMatcherBuilderSyntax<IScalar>, INodeMatcherBuilderSyntax>[] choices)
+        {
+            return EitherImpl(syntax, choices);
+        }
+
+        public static INodeMatcherBuilderSyntax<INode, SequenceMatcher> Either(this INodeMatcherBuilderSyntax<ISequence, SequenceMatcher> syntax, params Func<INodeMatcherBuilderSyntax<ISequence>, INodeMatcherBuilderSyntax>[] choices)
+        {
+            return EitherImpl(syntax, choices);
+        }
+
+        public static INodeMatcherBuilderSyntax<INode, MappingMatcher> Either(this INodeMatcherBuilderSyntax<IMapping, MappingMatcher> syntax, params Func<INodeMatcherBuilderSyntax<IMapping>, INodeMatcherBuilderSyntax>[] choices)
+        {
+            return EitherImpl(syntax, choices);
+        }
+
+        private static TSyntax EitherImpl<TNode, TSyntax>(TSyntax syntax, Func<INodeMatcherBuilderSyntax<TNode>, INodeMatcherBuilderSyntax>[] choices)
+            where TNode : class, INode
+            where TSyntax : INodeMatcherBuilderSyntax<TNode>
+        {
+            var predicates = choices
+                .Select(c =>
+                {
+                    var childSyntax = new ChildNodeMatcherBuilderSyntax<TNode>();
+                    c(childSyntax);
+                    return (INodePredicate<TNode>)childSyntax;
+                });
+
+            syntax.AddPredicate(new EitherMatcher<TNode>(predicates));
+            return syntax;
+        }
+
+        public static TSyntax MatchValue<TSyntax>(this TSyntax syntax, string expectedValue)
+            where TSyntax : INodeMatcherBuilderSyntax<IScalar>
+        {
+            syntax.AddPredicate(new ScalarValueMatcher(expectedValue));
+            return syntax;
+        }
+
+        public static TSyntax MatchPattern<TSyntax>(this TSyntax syntax, string pattern)
+            where TSyntax : class, INodeMatcherBuilderSyntax<IScalar>
+        {
+            return MatchPattern(syntax, new Regex(pattern, StandardRegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture));
+        }
+
+        public static TSyntax MatchPattern<TSyntax>(this TSyntax syntax, Regex pattern)
+            where TSyntax : class, INodeMatcherBuilderSyntax<IScalar>
+        {
+            syntax.AddPredicate(new RegexMatcher(pattern));
+            return syntax;
+        }
     }
 
     public abstract class NodeKindMatcher<TNode, TStyle> : NodeMatcher
@@ -339,6 +394,54 @@ namespace YamlDotNet.Representation.Schemas
     }
 
     public interface IScalarValuePredicate : INodePredicate<IScalar> { }
+
+    public sealed class EitherMatcher<TNode> : INodePredicate<TNode>
+        where TNode : INode
+    {
+        private readonly INodePredicate<TNode>[] predicates;
+
+        public EitherMatcher(IEnumerable<INodePredicate<TNode>> predicates)
+        {
+            if (predicates is null)
+            {
+                throw new ArgumentNullException(nameof(predicates));
+            }
+
+            this.predicates = predicates.ToArray();
+        }
+
+        public bool Matches(TNode node)
+        {
+            foreach (var predicate in predicates)
+            {
+                if (predicate.Matches(node))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public override string ToString()
+        {
+            var text = new StringBuilder();
+            text.Append('(');
+            foreach (var predicate in predicates)
+            {
+                text.Append(predicate);
+                text.Append(" || ");
+            }
+
+            if (text.Length > 4)
+            {
+                text.Length -= 4; // Remove the last " || "
+            }
+
+            text.Append(')');
+
+            return text.ToString();
+        }
+    }
 
     public sealed class TagMatcher : INodePredicate<INode>
     {

@@ -113,6 +113,11 @@ namespace System.Linq
             throw new InvalidOperationException();
         }
 
+        public static T First<T>(this IEnumerable<T> sequence, Func<T, bool> predicate)
+        {
+            return sequence.Where(predicate).First();
+        }
+
         public static T FirstOrDefault<T>(this IEnumerable<T> sequence)
         {
             foreach (var item in sequence)
@@ -120,6 +125,11 @@ namespace System.Linq
                 return item;
             }
             return default!;
+        }
+
+        public static T FirstOrDefault<T>(this IEnumerable<T> sequence, Func<T, bool> predicate)
+        {
+            return sequence.Where(predicate).FirstOrDefault();
         }
 
         public static T SingleOrDefault<T>(this IEnumerable<T> sequence)
@@ -154,11 +164,6 @@ namespace System.Linq
                 }
                 return result;
             }
-        }
-
-        public static T FirstOrDefault<T>(this IEnumerable<T> sequence, Func<T, bool> predicate)
-        {
-            return sequence.Where(predicate).FirstOrDefault();
         }
 
         public static IEnumerable<T> Concat<T>(this IEnumerable<T> first, IEnumerable<T> second)

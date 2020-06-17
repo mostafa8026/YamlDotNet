@@ -22,7 +22,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
-using YamlDotNet.Core.Events;
 
 namespace YamlDotNet.Representation.Schemas
 {
@@ -50,9 +49,19 @@ namespace YamlDotNet.Representation.Schemas
                 this.secondary = secondary ?? throw new ArgumentNullException(nameof(secondary));
             }
 
-            public ISchemaIterator EnterMapping(TagName tag)
+            public ISchemaIterator EnterScalar(IScalar scalar)
             {
-                return new CompositeIterator(primary.EnterMapping(tag), secondary.EnterMapping(tag));
+                return new CompositeIterator(primary.EnterScalar(scalar), secondary.EnterScalar(scalar));
+            }
+
+            public ISchemaIterator EnterSequence(ISequence sequence)
+            {
+                return new CompositeIterator(primary.EnterSequence(sequence), secondary.EnterSequence(sequence));
+            }
+
+            public ISchemaIterator EnterMapping(IMapping mapping)
+            {
+                return new CompositeIterator(primary.EnterMapping(mapping), secondary.EnterMapping(mapping));
             }
 
             public ISchemaIterator EnterMappingValue()
@@ -60,35 +69,25 @@ namespace YamlDotNet.Representation.Schemas
                 return new CompositeIterator(primary.EnterMappingValue(), secondary.EnterMappingValue());
             }
 
-            public ISchemaIterator EnterScalar(TagName tag, string value)
-            {
-                return new CompositeIterator(primary.EnterScalar(tag, value), secondary.EnterScalar(tag, value));
-            }
-
-            public ISchemaIterator EnterSequence(TagName tag)
-            {
-                return new CompositeIterator(primary.EnterSequence(tag), secondary.EnterSequence(tag));
-            }
-
-            public bool TryResolveMapper(NodeEvent node, [NotNullWhen(true)] out INodeMapper? mapper)
+            public bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper)
             {
                 return primary.TryResolveMapper(node, out mapper)
                     || secondary.TryResolveMapper(node, out mapper);
             }
 
-            public bool IsTagImplicit(Scalar scalar, out ScalarStyle style)
+            public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
             {
                 return primary.IsTagImplicit(scalar, out style)
                     || secondary.IsTagImplicit(scalar, out style);
             }
 
-            public bool IsTagImplicit(Sequence sequence, out SequenceStyle style)
+            public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
             {
                 return primary.IsTagImplicit(sequence, out style)
                     || secondary.IsTagImplicit(sequence, out style);
             }
 
-            public bool IsTagImplicit(Mapping mapping, out MappingStyle style)
+            public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
             {
                 return primary.IsTagImplicit(mapping, out style)
                     || secondary.IsTagImplicit(mapping, out style);

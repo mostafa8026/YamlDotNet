@@ -21,13 +21,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Helpers;
 using YamlDotNet.Representation.Schemas;
-using Events = YamlDotNet.Core.Events;
 using ScalarEvent = YamlDotNet.Core.Events.Scalar;
 
 namespace YamlDotNet.Representation
@@ -39,7 +38,7 @@ namespace YamlDotNet.Representation
             return Load(new Parser(new StringReader(yaml)), schemaSelector);
         }
 
-        public static IEnumerable<Document> Load(IParser parser, Func<DocumentStart, ISchema> schemaSelector)
+        public static IEnumerable<Document> Load(IParser parser, Func<DocumentStart, ISchema> schemaSelector, bool stream = false)
         {
             static IEnumerable<Document> LoadDocuments(IParser parser, Func<DocumentStart, ISchema> schemaSelector)
             {
@@ -57,7 +56,8 @@ namespace YamlDotNet.Representation
                 parser.Consume<StreamEnd>();
             }
 
-            return LoadDocuments(parser, schemaSelector).Buffer();
+            var documents = LoadDocuments(parser, schemaSelector);
+            return stream ? documents : documents.ToList();
         }
 
         public static string Dump(IEnumerable<Document> stream, bool explicitSeparators = false)
@@ -103,17 +103,17 @@ namespace YamlDotNet.Representation
                 }
                 else if (parser.TryConsume<ScalarEvent>(out var scalar))
                 {
-                    childIterator = iterator.EnterScalar(scalar.Tag, scalar.Value);
+                    childIterator = iterator.EnterScalar(scalar);
                     return LoadScalar(scalar, childIterator);
                 }
                 else if (parser.TryConsume<SequenceStart>(out var sequenceStart))
                 {
-                    childIterator = iterator.EnterSequence(sequenceStart.Tag);
+                    childIterator = iterator.EnterSequence(sequenceStart);
                     return LoadSequence(sequenceStart, childIterator);
                 }
                 else if (parser.TryConsume<MappingStart>(out var mappingStart))
                 {
-                    childIterator = iterator.EnterMapping(mappingStart.Tag);
+                    childIterator = iterator.EnterMapping(mappingStart);
                     return LoadMapping(mappingStart, childIterator);
                 }
                 else
@@ -179,9 +179,9 @@ namespace YamlDotNet.Representation
                     {
                         keyIterator = key switch
                         {
-                            Scalar keyScalar => iterator.EnterScalar(keyScalar.Tag, keyScalar.Value),
-                            Sequence keySequence => iterator.EnterSequence(keySequence.Tag),
-                            Mapping keyMapping => iterator.EnterMapping(keyMapping.Tag),
+                            Scalar keyScalar => iterator.EnterScalar(keyScalar),
+                            Sequence keySequence => iterator.EnterSequence(keySequence),
+                            Mapping keyMapping => iterator.EnterMapping(keyMapping),
                             _ => throw Invariants.InvalidCase(key)
                         };
                     }
@@ -243,17 +243,17 @@ namespace YamlDotNet.Representation
                 switch (node)
                 {
                     case Scalar scalar:
-                        childIterator = iterator.EnterScalar(scalar.Tag, scalar.Value);
+                        childIterator = iterator.EnterScalar(scalar);
                         Dump(scalar, childIterator);
                         break;
 
                     case Sequence sequence:
-                        childIterator = iterator.EnterSequence(sequence.Tag);
+                        childIterator = iterator.EnterSequence(sequence);
                         Dump(sequence, childIterator);
                         break;
 
                     case Mapping mapping:
-                        childIterator = iterator.EnterMapping(mapping.Tag);
+                        childIterator = iterator.EnterMapping(mapping);
                         Dump(mapping, childIterator);
                         break;
 

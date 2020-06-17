@@ -52,11 +52,11 @@ namespace YamlDotNet.Serialization.Schemas
             }
         }
 
-        public void Add(Type type, INodeMapper nodeMapper)
-        {
-            throw new NotImplementedException("TODO");
-            //Add(type, new NodeKindMatcher(nodeMapper));
-        }
+        //public void Add(Type type, INodeMapper nodeMapper)
+        //{
+        //    throw new NotImplementedException("TODO");
+        //    //Add(type, new NodeKindMatcher(nodeMapper));
+        //}
 
         public void Add(Type type, NodeMatcher nodeMatcher)
         {

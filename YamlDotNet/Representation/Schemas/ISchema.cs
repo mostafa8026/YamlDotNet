@@ -21,27 +21,34 @@
 
 using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
-using YamlDotNet.Core.Events;
 
 namespace YamlDotNet.Representation.Schemas
 {
     public interface ISchemaIterator
     {
-        ISchemaIterator EnterScalar(TagName tag, string value);
-        ISchemaIterator EnterSequence(TagName tag);
-        ISchemaIterator EnterMapping(TagName tag);
+        ISchemaIterator EnterScalar(IScalar scalar);
+        ISchemaIterator EnterSequence(ISequence sequence);
+        ISchemaIterator EnterMapping(IMapping mapping);
         ISchemaIterator EnterMappingValue();
 
-        bool TryResolveMapper(NodeEvent node, [NotNullWhen(true)] out INodeMapper? mapper);
+        /// <summary>
+        /// Attempts to resolve a mapper for the specified node.
+        /// </summary>
+        /// <remarks>
+        /// The <paramref name="node" /> that is passed will always be the same as
+        /// the one passed initially to access this instance, through the methods
+        /// <see cref="EnterScalar"/>, <see cref="EnterSequence"/> and <see cref="EnterMapping"/>.
+        /// </remarks>
+        bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper);
 
-        bool IsTagImplicit(Scalar scalar, out ScalarStyle style);
-        bool IsTagImplicit(Sequence sequence, out SequenceStyle style);
-        bool IsTagImplicit(Mapping mapping, out MappingStyle style);
+        bool IsTagImplicit(IScalar scalar, out ScalarStyle style);
+        bool IsTagImplicit(ISequence sequence, out SequenceStyle style);
+        bool IsTagImplicit(IMapping mapping, out MappingStyle style);
     }
 
     public static class SchemaIteratorExtensions
     {
-        public static INodeMapper ResolveMapper(this ISchemaIterator iterator, NodeEvent node)
+        public static INodeMapper ResolveMapper(this ISchemaIterator iterator, INode node)
         {
             return iterator.TryResolveMapper(node, out var mapper)
                 ? mapper
