@@ -25,4 +25,8 @@ namespace System
     public delegate TResult Func<TArg, TResult>(TArg arg);
     public delegate TResult Func<TArg1, TArg2, TResult>(TArg1 arg1, TArg2 arg2);
     public delegate TResult Func<TArg1, TArg2, TArg3, TResult>(TArg1 arg1, TArg2 arg2, TArg3 arg3);
+
+    public delegate void Action();
+    public delegate void Action<TArg1, TArg2>(TArg1 arg1, TArg2 arg2);
+    public delegate void Action<TArg1, TArg2, TArg3>(TArg1 arg1, TArg2 arg2, TArg3 arg3);
 }

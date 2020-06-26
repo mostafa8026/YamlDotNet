@@ -35,14 +35,12 @@ namespace YamlDotNet.Representation.Schemas
 
         public StringMapper(TagName tag) : base(tag) { }
 
-        public override NodeKind MappedNodeKind => NodeKind.Scalar;
-
         public override string Construct(Node node)
         {
             return node.Expect<Scalar>().Value;
         }
 
-        public override Node Represent(string native, ISchema schema, NodePath currentPath)
+        public override Node Represent(string native, ISchemaIterator iterator)
         {
             return new Scalar(this, native);
         }

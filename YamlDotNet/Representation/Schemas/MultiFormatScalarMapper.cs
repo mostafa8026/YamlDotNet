@@ -85,7 +85,6 @@ namespace YamlDotNet.Representation.Schemas
         }
 
         public TagName Tag { get; }
-        public NodeKind MappedNodeKind => NodeKind.Scalar;
         public INodeMapper Canonical => this;
 
         public object? Construct(Node node)
@@ -102,10 +101,10 @@ namespace YamlDotNet.Representation.Schemas
             throw new SemanticErrorException(node.Start, node.End, $"The node '{node}' could not be parsed as '{Tag}'.");
         }
 
-        public Node Represent(object? native, ISchema schema, NodePath currentPath)
+        public Node Represent(object? native, ISchemaIterator iterator)
         {
             // It is assumed that the first mapper uses the canonical representation.
-            return formats[0].Mapper.Represent(native, schema, currentPath);
+            return formats[0].Mapper.Represent(native, iterator);
         }
 
         public sealed class FormatMapperEntry

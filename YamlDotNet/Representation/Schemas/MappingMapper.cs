@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using YamlDotNet.Core;
 using YamlDotNet.Helpers;
@@ -48,8 +49,6 @@ namespace YamlDotNet.Representation.Schemas
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
         }
 
-        public override NodeKind MappedNodeKind => NodeKind.Mapping;
-
         public override TMapping Construct(Node node)
         {
             var mapping = node.Expect<Mapping>();
@@ -67,33 +66,23 @@ namespace YamlDotNet.Representation.Schemas
             return dictionary;
         }
 
-        public override Node Represent(TMapping native, ISchema schema, NodePath currentPath)
+        public override Node Represent(TMapping native, ISchemaIterator iterator)
         {
-            var items = new Dictionary<Node, Node>();
+            var children = new Dictionary<Node, Node>();
 
-            // Notice that the items collection will still be mutated after constructing the Sequence object.
+            // Notice that the children collection will still be mutated after constructing the Sequence object.
             // We need to create it now in order to update the current path.
-            var mapping = new Mapping(this, items.AsReadonlyDictionary());
+            var mapping = new Mapping(this, children.AsReadonlyDictionary());
 
-            using (currentPath.Push(mapping))
+            foreach (var (key, value) in native)
             {
-                throw new NotImplementedException("TODO");
-                //var basePath = currentPath.GetCurrentPath();
-                //foreach (var (key, value) in native)
-                //{
-                //    var keyMapper = schema.ResolveChildMapper(key, basePath);
-                //    var keyNode = keyMapper.Represent(key, schema, currentPath);
+                var keyIterator = iterator.EnterValue(key, out var keyMapper);
+                var keyNode = keyMapper.Represent(key, keyIterator);
 
-                //    using (currentPath.Push(keyNode))
-                //    {
-                //        var valueMapper = schema.ResolveChildMapper(value, currentPath.GetCurrentPath());
-                //        var valueNode = valueMapper.Represent(value, schema, currentPath);
-
-                //        items.Add(keyNode, valueNode);
-                //    }
-                //}
+                var valueIterator = keyIterator.EnterMappingValue().EnterValue(value, out var valueMapper);
+                var valueNode = valueMapper.Represent(value, valueIterator);
+                children.Add(keyNode, valueNode);
             }
-
             return mapping;
         }
     }
@@ -116,24 +105,25 @@ namespace YamlDotNet.Representation.Schemas
 
         public static INodeMapper Create(Type mappingType, Type keyType, Type valueType)
         {
-            return Create(YamlTagRepository.Mapping, mappingType, keyType, valueType);
+            return Create(YamlTagRepository.Mapping, mappingType, mappingType, keyType, valueType);
         }
 
-        public static INodeMapper Create(TagName tag, Type mappingType, Type keyType, Type valueType)
+        public static INodeMapper Create(TagName tag, Type mappingType, Type mappingConcreteType, Type keyType, Type valueType)
         {
             return (INodeMapper)createHelperGenericMethod
-                .MakeGenericMethod(mappingType, keyType, valueType)
+                .MakeGenericMethod(mappingType, mappingConcreteType, keyType, valueType)
                 .Invoke(null, new object[] { tag })!;
         }
 
         private static readonly MethodInfo createHelperGenericMethod = typeof(MappingMapper).GetPrivateStaticMethod(nameof(CreateHelper))
             ?? throw new MissingMethodException($"Expected to find a method named '{nameof(CreateHelper)}' in class '{typeof(MappingMapper).FullName}'.");
 
-        private static INodeMapper CreateHelper<TMapping, TKey, TValue>(TagName tag)
+        private static INodeMapper CreateHelper<TMapping, TConcreteMapping, TKey, TValue>(TagName tag)
             where TMapping : IDictionary<TKey, TValue>
+            where TConcreteMapping : TMapping
             where TKey : notnull
         {
-            var factory = CollectionFactoryHelper.CreateFactory<TMapping>();
+            var factory = CollectionFactoryHelper.CreateFactory<TMapping, TConcreteMapping>();
             return new MappingMapper<TMapping, TKey, TValue>(tag, factory);
         }
     }

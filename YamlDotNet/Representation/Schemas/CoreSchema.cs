@@ -30,7 +30,7 @@ namespace YamlDotNet.Representation.Schemas
     /// </summary>
     public static class CoreSchema
     {
-        public static readonly ISchema Instance = new ContextFreeSchema(CreateMatchers());
+        public static readonly ContextFreeSchema Instance = new ContextFreeSchema(CreateMatchers());
 
         public static class IntegerMapper
         {

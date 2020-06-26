@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using YamlDotNet.Core;
 using YamlDotNet.Helpers;
 using YamlDotNet.Representation;
@@ -41,7 +42,6 @@ namespace YamlDotNet.Serialization.Schemas
         }
 
         public TagName Tag { get; }
-        public NodeKind MappedNodeKind => NodeKind.Mapping;
         public INodeMapper Canonical => this;
 
         public object? Construct(Node node)
@@ -66,41 +66,45 @@ namespace YamlDotNet.Serialization.Schemas
             return native;
         }
 
-        public Node Represent(object? native, ISchema schema, NodePath currentPath)
+        public Node Represent(object? native, ISchemaIterator iterator)
         {
-            if (native == null) // TODO: Do we need this ?
-            {
-                return NullMapper.Default.NullScalar;
-            }
+            throw new NotImplementedException("TODO");
+            //if (native == null) // TODO: Do we need this ?
+            //{
+            //    return NullMapper.Default.NullScalar;
+            //}
 
-            var children = new Dictionary<Node, Node>();
-            var mapping = new Mapping(this, children.AsReadonlyDictionary());
+            //var children = new Dictionary<Node, Node>();
 
-            using (currentPath.Push(mapping))
-            {
-                // TODO: Type inspector
-                var properties = native.GetType().GetPublicProperties();
-                foreach (var property in properties)
-                {
-                    var value = property.GetValue(native, null);
-                    // TODO: Proper null handling
-                    if (value != null)
-                    {
-                        var key = property.Name; // TODO: Naming convention
-                        var keyNode = new Scalar(StringMapper.Default, key);
+            //// Notice that the children collection will still be mutated after constructing the Sequence object.
+            //// We need to create it now in order to update the current path.
+            //var mapping = new Mapping(this, children.AsReadonlyDictionary());
 
-                        using (currentPath.Push(keyNode))
-                        {
-                            throw new NotImplementedException("TODO");
-                            //var valueMapper = schema.ResolveChildMapper(value, currentPath.GetCurrentPath());
-                            //var valueNode = valueMapper.Represent(value, schema, currentPath);
+            //var mappingIterator = iterator.EnterNode(mapping);
 
-                            //children.Add(keyNode, valueNode);
-                        }
-                    }
-                }
-            }
-            return mapping;
+            //// TODO: Type inspector
+            //// TODO: Get the properties from the iterator ?
+            //var properties = native.GetType().GetPublicProperties();
+            //foreach (var property in properties)
+            //{
+            //    var value = property.GetValue(native, null);
+            //    // TODO: Proper null handling
+            //    if (value != null)
+            //    {
+            //        var key = property.Name; // TODO: Naming convention
+            //        var keyNode = new Scalar(StringMapper.Default, key);
+
+            //        var keyIterator = mappingIterator.EnterNode(keyNode);
+
+            //        var valueIterator = keyIterator.EnterMappingValue();
+            //        var valueMatcher = valueIterator.NodeMatchers.FirstOrDefault() // TODO: What to do when multiple mappers are returned ?
+            //            ?? throw new Exception("TODO: What to do when no mappers are returned ?");
+
+            //        var valueNode = valueMatcher.Mapper.Represent(value, valueIterator);
+            //        children.Add(keyNode, valueNode);
+            //    }
+            //}
+            //return mapping;
         }
 
         public override string ToString()

@@ -21,7 +21,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using YamlDotNet.Core;
 
@@ -31,15 +30,22 @@ namespace YamlDotNet.Representation.Schemas
     {
         public ContextFreeSchema(IEnumerable<NodeMatcher> matchers)
         {
-            Root = new Iterator(matchers);
+            root = new Iterator(matchers);
         }
 
-        public ISchemaIterator Root { get; }
+        private readonly Iterator root;
+
+        public ISchemaIterator Root => root;
+
+        public IEnumerable<NodeMatcher> GetNodeMatchersForTag(TagName tag)
+        {
+            return root.matchersByTag[tag];
+        }
 
         private sealed class Iterator : ISchemaIterator
         {
-            private readonly IEnumerable<NodeMatcher> matchers;
-            private readonly ILookup<TagName, NodeMatcher> matchersByTag;
+            private readonly IEnumerable<NodeMatcher> nodeMatchers;
+            public readonly ILookup<TagName, NodeMatcher> matchersByTag;
             private readonly IDictionary<TagName, INodeMapper> knownTags;
 
             public Iterator(IEnumerable<NodeMatcher> matchers)
@@ -49,8 +55,8 @@ namespace YamlDotNet.Representation.Schemas
                     throw new ArgumentNullException(nameof(matchers));
                 }
 
-                this.matchers = matchers.ToList();
-                this.matchersByTag = this.matchers.ToLookup(m => m.Mapper.Tag);
+                this.nodeMatchers = matchers.ToList();
+                this.matchersByTag = this.nodeMatchers.ToLookup(m => m.Mapper.Tag);
 
                 knownTags = new Dictionary<TagName, INodeMapper>();
 
@@ -71,32 +77,56 @@ namespace YamlDotNet.Representation.Schemas
                 }
             }
 
-            public ISchemaIterator EnterScalar(IScalar scalar) => this;
-            public ISchemaIterator EnterSequence(ISequence sequence) => this;
-            public ISchemaIterator EnterMapping(IMapping mapping) => this;
-            public ISchemaIterator EnterMappingValue() => this;
-
-            public bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper)
+            public ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
             {
                 if (node.Tag.IsNonSpecific)
                 {
-                    foreach (var matcher in matchers)
+                    foreach (var matcher in nodeMatchers)
                     {
                         if (matcher.Matches(node))
                         {
                             mapper = matcher.Mapper.Canonical;
-                            return true;
+                            return this;
                         }
                     }
                 }
 
-                return knownTags.TryGetValue(node.Tag, out mapper);
+                if (!knownTags.TryGetValue(node.Tag, out mapper!))
+                {
+                    mapper = new UnresolvedTagMapper(node.Tag);
+                }
+
+                return this;
             }
+
+            public ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
+            {
+                throw new NotImplementedException("TODO");
+            }
+
+            public ISchemaIterator EnterMappingValue() => this;
+
+            //public bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper)
+            //{
+            //    if (node.Tag.IsNonSpecific)
+            //    {
+            //        foreach (var matcher in NodeMatchers)
+            //        {
+            //            if (matcher.Matches(node))
+            //            {
+            //                mapper = matcher.Mapper.Canonical;
+            //                return true;
+            //            }
+            //        }
+            //    }
+
+            //    return knownTags.TryGetValue(node.Tag, out mapper);
+            //}
 
             public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
             {
                 var plainAllowed = scalar.Value.Length > 0;
-                foreach (var matcher in matchers)
+                foreach (var matcher in nodeMatchers)
                 {
                     if (matcher is ScalarMatcher scalarMatcher && scalarMatcher.MatchesContent(scalar))
                     {

@@ -41,7 +41,6 @@ namespace YamlDotNet.Representation.Schemas
         }
 
         public TagName Tag => YamlTagRepository.Null;
-        public NodeKind MappedNodeKind => NodeKind.Scalar;
         public INodeMapper Canonical => this;
 
         public object? Construct(Node node)
@@ -49,7 +48,7 @@ namespace YamlDotNet.Representation.Schemas
             return null;
         }
 
-        public Node Represent(object? native, ISchema schema, NodePath currentPath)
+        public Node Represent(object? native, ISchemaIterator iterator)
         {
             return NullScalar;
         }

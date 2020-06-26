@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using YamlDotNet.Core;
 using YamlDotNet.Helpers;
@@ -45,8 +46,6 @@ namespace YamlDotNet.Representation.Schemas
         {
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
         }
-
-        public override NodeKind MappedNodeKind => NodeKind.Sequence;
 
         public override TSequence Construct(Node node)
         {
@@ -76,24 +75,19 @@ namespace YamlDotNet.Representation.Schemas
             return collection;
         }
 
-        public override Node Represent(TSequence native, ISchema schema, NodePath currentPath)
+        public override Node Represent(TSequence native, ISchemaIterator iterator)
         {
-            var items = new List<Node>();
+            var children = new List<Node>();
 
-            // Notice that the items collection will still be mutated after constructing the Sequence object.
+            // Notice that the children collection will still be mutated after constructing the Sequence object.
             // We need to create it now in order to update the current path.
-            var sequence = new Sequence(this, items.AsReadonlyList());
+            var sequence = new Sequence(this, children.AsReadonlyList());
 
-            using (currentPath.Push(sequence))
+            foreach (var item in native)
             {
-                var path = currentPath.GetCurrentPath();
-                foreach (var item in native)
-                {
-                    throw new NotImplementedException("TODO");
-                    //var mapper = schema.ResolveChildMapper(item, path);
-                    //var childNode = mapper.Represent(item, schema, currentPath);
-                    //items.Add(childNode);
-                }
+                var itemIterator = iterator.EnterValue(item, out var itemMapper);
+                var childNode = itemMapper.Represent(item, itemIterator);
+                children.Add(childNode);
             }
 
             return sequence;
@@ -115,25 +109,27 @@ namespace YamlDotNet.Representation.Schemas
 
             return (INodeMapper)defaultField.GetValue(null)!;
         }
+
         public static INodeMapper Create(Type sequenceType, Type itemType)
         {
-            return Create(YamlTagRepository.Sequence, sequenceType, itemType);
+            return Create(YamlTagRepository.Sequence, sequenceType, sequenceType, itemType);
         }
 
-        public static INodeMapper Create(TagName tag, Type sequenceType, Type itemType)
+        public static INodeMapper Create(TagName tag, Type sequenceType, Type sequenceConcreteType, Type itemType)
         {
             return (INodeMapper)createHelperGenericMethod
-                .MakeGenericMethod(sequenceType, itemType)
+                .MakeGenericMethod(sequenceType, sequenceConcreteType, itemType)
                 .Invoke(null, new object[] { tag })!;
         }
 
         private static readonly MethodInfo createHelperGenericMethod = typeof(SequenceMapper).GetPrivateStaticMethod(nameof(CreateHelper))
             ?? throw new MissingMethodException($"Expected to find a method named '{nameof(CreateHelper)}' in class '{typeof(SequenceMapper).FullName}'.");
 
-        private static INodeMapper CreateHelper<TSequence, TItem>(TagName tag)
+        private static INodeMapper CreateHelper<TSequence, TConcreteSequence, TItem>(TagName tag)
             where TSequence : ICollection<TItem>
+            where TConcreteSequence : TSequence
         {
-            var factory = CollectionFactoryHelper.CreateFactory<TSequence>();
+            var factory = CollectionFactoryHelper.CreateFactory<TSequence, TConcreteSequence>();
             return new SequenceMapper<TSequence, TItem>(tag, factory);
         }
     }

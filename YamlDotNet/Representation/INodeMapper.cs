@@ -32,11 +32,6 @@ namespace YamlDotNet.Representation
         TagName Tag { get; }
 
         /// <summary>
-        /// The <see cref="NodeKind" /> of the nodes that this mapper is able to handle.
-        /// </summary>
-        NodeKind MappedNodeKind { get; }
-
-        /// <summary>
         /// Constructs a native representation of the value contained by the specified <see cref="Node" />.
         /// </summary>
         /// <param name="node">
@@ -53,13 +48,12 @@ namespace YamlDotNet.Representation
         /// Creates a <see cref="Node"/> that represents the specified native value.
         /// </summary>
         /// <param name="native">The value to be converted. It must be compatible with this mapper's <see cref="Tag"/>.</param>
-        /// <param name="schema">The <see cref="ISchema" /> that should be used to resolve tags.</param>
-        /// <param name="currentPath">The path that leads to this node, for tag resolution.</param>
+        /// <param name="iterator">The <see cref="ISchemaIterator" /> that should be used to resolve tags.</param>
         /// <returns>
         /// Returns a <see cref="Node"/> that represents the <paramref name="native"/> in YAML,
         /// according to this <see cref="Tag"/>'s rules.
         /// </returns>
-        Node Represent(object? native, ISchema schema, NodePath currentPath);
+        Node Represent(object? native, ISchemaIterator iterator);
 
         /// <summary>
         /// Gets the canonical version of this <see cref="INodeMapper" />.

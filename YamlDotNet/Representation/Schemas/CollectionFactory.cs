@@ -29,11 +29,12 @@ namespace YamlDotNet.Representation.Schemas
 
     internal static class CollectionFactoryHelper
     {
-        public static CollectionFactory<TCollection> CreateFactory<TCollection>()
+        public static CollectionFactory<TCollection> CreateFactory<TCollection, TConcreteCollection>()
+            where TConcreteCollection : TCollection
         {
             CollectionFactory<TCollection> factory;
 
-            var constructors = typeof(TCollection).GetConstructors();
+            var constructors = typeof(TConcreteCollection).GetConstructors();
             var intConstructor = constructors.FirstOrDefault(c =>
             {
                 var parameters = c.GetParameters();
@@ -47,7 +48,10 @@ namespace YamlDotNet.Representation.Schemas
 #else
                 var capacityParameter = Expression.Parameter(typeof(int), "s");
                 var factoryExpression = Expression.Lambda<CollectionFactory<TCollection>>(
-                    Expression.New(intConstructor, capacityParameter),
+                    Expression.Convert(
+                        Expression.New(intConstructor, capacityParameter),
+                        typeof(TCollection)
+                    ),
                     capacityParameter
                 );
                 factory = factoryExpression.Compile();
@@ -66,7 +70,10 @@ namespace YamlDotNet.Representation.Schemas
 #else
                 var capacityParameter = Expression.Parameter(typeof(int), "s");
                 var factoryExpression = Expression.Lambda<CollectionFactory<TCollection>>(
-                    Expression.New(defaultConstructor),
+                    Expression.Convert(
+                        Expression.New(defaultConstructor),
+                        typeof(TCollection)
+                    ),
                     capacityParameter
                 );
                 factory = factoryExpression.Compile();

@@ -28,45 +28,100 @@ namespace YamlDotNet.Helpers
     internal sealed class SingleThreadCache<TKey, TValue> : ICache<TKey, TValue>
         where TKey : notnull
     {
-        private readonly Dictionary<TKey, Lazy<TValue>> entries = new Dictionary<TKey, Lazy<TValue>>();
-
-        public void Add(TKey key, TValue value) => entries.Add(key, Lazy.FromValue(value));
-
-        public TValue GetOrAdd(TKey key, Func<TValue> valueFactory)
+        private sealed class CacheEntry
         {
-            // Lazy<T> takes care of detecting recursion in the value factory.
-            if (!entries.TryGetValue(key, out var value))
+            private enum ValueState
             {
-                value = new Lazy<TValue>(() =>
+                NotComputed,
+                Computing,
+                Available,
+            }
+
+            private TValue value;
+            private TwoStepFactory<TKey, TValue>? valueFactory;
+            private ValueState valueState;
+
+            public CacheEntry(TValue value)
+            {
+                this.value = value;
+                this.valueState = ValueState.Available;
+            }
+
+            public CacheEntry(TwoStepFactory<TKey, TValue> valueFactory)
+            {
+                this.value = default!;
+                this.valueFactory = valueFactory ?? throw new ArgumentNullException(nameof(valueFactory));
+                this.valueState = ValueState.NotComputed;
+            }
+
+            public TValue GetValue(TKey key)
+            {
+                switch (valueState)
                 {
-                    try
-                    {
-                        return valueFactory();
-                    }
-                    catch (InvalidRecursionException ex)
-                    {
-                        ex.AddPath(key.ToString()!);
-                        throw;
-                    }
-                    catch (InvalidOperationException ex)
-                    {
+                    case ValueState.NotComputed:
+                        try
+                        {
+                            ComputeValue(key);
+                        }
+                        catch (InvalidRecursionException ex)
+                        {
+                            ex.AddPath(key.ToString()!);
+                            throw;
+                        }
+                        break;
+
+                    case ValueState.Computing:
                         throw new InvalidRecursionException(
                             "The valueFactory that was passed to SingleThreadCache.GetOrAdd() attempted to call itself.",
-                            key.ToString()!,
-                            ex
+                            key.ToString()!
                         );
-                    }
-                }, isThreadSafe: false);
-                entries.Add(key, value);
+                }
+
+                return this.value;
             }
-            return value.Value;
+
+            private void ComputeValue(TKey key)
+            {
+                this.valueState = ValueState.Computing;
+                var (value, completeCreation) = valueFactory!(key);
+                this.value = value;
+                this.valueState = ValueState.Available;
+
+                completeCreation?.Invoke();
+
+                this.valueFactory = null;
+            }
+        }
+
+        private readonly Dictionary<TKey, CacheEntry> entries = new Dictionary<TKey, CacheEntry>();
+
+        public void Add(TKey key, TValue value) => entries.Add(key, new CacheEntry(value));
+
+        public TValue GetOrAdd(TKey key, TValue value)
+        {
+            if (!entries.TryGetValue(key, out var entry))
+            {
+                entry = new CacheEntry(value);
+                entries.Add(key, entry);
+            }
+            return entry.GetValue(key);
+        }
+
+        public TValue GetOrAdd(TKey key, TwoStepFactory<TKey, TValue> valueFactory)
+        {
+            if (!entries.TryGetValue(key, out var entry))
+            {
+                entry = new CacheEntry(valueFactory);
+                entries.Add(key, entry);
+            }
+            return entry.GetValue(key);
         }
 
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
             if (entries.TryGetValue(key, out var lazyValue))
             {
-                value = lazyValue.Value;
+                value = lazyValue.GetValue(key);
                 return true;
             }
 

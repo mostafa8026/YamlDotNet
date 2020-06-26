@@ -27,7 +27,6 @@ namespace YamlDotNet.Representation.Schemas
     public abstract class NodeMapper<T> : INodeMapper
     {
         public TagName Tag { get; }
-        public abstract NodeKind MappedNodeKind { get; }
         public virtual INodeMapper Canonical => this;
 
         protected NodeMapper(TagName tag)
@@ -36,10 +35,10 @@ namespace YamlDotNet.Representation.Schemas
         }
 
         public abstract T Construct(Node node);
-        public abstract Node Represent(T native, ISchema schema, NodePath currentPath);
+        public abstract Node Represent(T native, ISchemaIterator iterator);
 
         object? INodeMapper.Construct(Node node) => Construct(node);
-        Node INodeMapper.Represent(object? native, ISchema schema, NodePath currentPath) => Represent((T)native!, schema, currentPath);
+        Node INodeMapper.Represent(object? native, ISchemaIterator iterator) => Represent((T)native!, iterator);
 
         public override string ToString() => Tag.ToString();
     }
@@ -51,21 +50,19 @@ namespace YamlDotNet.Representation.Schemas
             private readonly Func<Node, object?> constructor;
             private readonly Func<object?, INodeMapper, Node> representer;
 
-            public LambdaNodeMapper(TagName tag, NodeKind mappedNodeKind, Func<Node, object?> constructor, Func<object?, INodeMapper, Node> representer, INodeMapper? canonical)
+            public LambdaNodeMapper(TagName tag, Func<Node, object?> constructor, Func<object?, INodeMapper, Node> representer, INodeMapper? canonical)
             {
                 Tag = tag;
-                MappedNodeKind = mappedNodeKind;
                 this.constructor = constructor ?? throw new ArgumentNullException(nameof(constructor));
                 this.representer = representer ?? throw new ArgumentNullException(nameof(representer));
                 Canonical = canonical ?? this;
             }
 
             public TagName Tag { get; }
-            public NodeKind MappedNodeKind { get; }
             public INodeMapper Canonical { get; }
 
             public object? Construct(Node node) => constructor(node);
-            public Node Represent(object? native, ISchema schema, NodePath currentPath) => representer(native, this);
+            public Node Represent(object? native, ISchemaIterator iterator) => representer(native, this);
 
             public override string ToString() => Tag.ToString();
         }
@@ -77,7 +74,7 @@ namespace YamlDotNet.Representation.Schemas
 
         public static INodeMapper CreateScalarMapper(TagName tag, Func<Scalar, object?> constructor, Func<object?, INodeMapper, Node> representer, INodeMapper? canonical = null)
         {
-            return new LambdaNodeMapper(tag, NodeKind.Scalar, n => constructor(n.Expect<Scalar>()), representer, canonical);
+            return new LambdaNodeMapper(tag, n => constructor(n.Expect<Scalar>()), representer, canonical);
         }
     }
 }

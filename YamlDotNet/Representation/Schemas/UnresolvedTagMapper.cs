@@ -21,38 +21,27 @@
 
 using System;
 using YamlDotNet.Core;
-using YamlDotNet.Serialization.Utilities;
 
 namespace YamlDotNet.Representation.Schemas
 {
     public sealed class UnresolvedTagMapper : INodeMapper
     {
         public TagName Tag { get; }
-        public NodeKind MappedNodeKind { get; }
         public INodeMapper Canonical => this;
 
-        public UnresolvedTagMapper(TagName tag, NodeKind mappedNodeKind)
+        public UnresolvedTagMapper(TagName tag)
         {
             Tag = tag;
-            MappedNodeKind = mappedNodeKind;
         }
 
         public object? Construct(Node node)
         {
-            return node is Scalar scalar
-                ? scalar.Value
-                : throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
+            throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
         }
 
-        public Node Represent(object? native, ISchema schema, NodePath currentPath)
+        public Node Represent(object? native, ISchemaIterator iterator)
         {
-            if (MappedNodeKind == NodeKind.Scalar)
-            {
-                return new Scalar(this, TypeConverter.ChangeType<string>(native));
-            }
-
             throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
         }
     }
-
 }

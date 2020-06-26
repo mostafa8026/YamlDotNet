@@ -19,18 +19,32 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-using System;
-using System.Diagnostics.CodeAnalysis;
+using System.Collections.Generic;
 
-namespace YamlDotNet.Helpers
+namespace System.Runtime.CompilerServices
 {
-    internal interface ICache<TKey, TValue> where TKey : notnull
+    internal sealed class TupleElementNamesAttribute : Attribute
     {
-        void Add(TKey key, TValue value);
-        TValue GetOrAdd(TKey key, TValue value);
-        TValue GetOrAdd(TKey key, TwoStepFactory<TKey, TValue> valueFactory);
-        bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value);
-    }
+        public TupleElementNamesAttribute(string?[] transformNames)
+        {
+            TransformNames = transformNames;
+        }
 
-    internal delegate (TValue value, Action? completeCreation) TwoStepFactory<TKey, TValue>(TKey key);
+        public IList<string?> TransformNames { get; }
+    }
+}
+
+namespace System
+{
+    public struct ValueTuple<T1, T2>
+    {
+        public T1 Item1;
+        public T2 Item2;
+
+        public ValueTuple(T1 item1, T2 item2)
+        {
+            this.Item1 = item1;
+            this.Item2 = item2;
+        }
+    }
 }

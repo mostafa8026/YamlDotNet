@@ -23,7 +23,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Text.RegularExpressions;
 using YamlDotNet.Core;
+using YamlDotNet.Helpers;
 using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
 
@@ -31,140 +33,268 @@ namespace YamlDotNet.Serialization.Schemas
 {
     public sealed class TypeSchema : ISchema
     {
+        private readonly NodeMatcher rootMatcher;
+
         public TypeSchema(Type root, ISchema baseSchema, TypeMatcherTable typeMatchers)
         {
-            var rootMatcher = typeMatchers.GetNodeMatcher(root);
-            Root = new SchemaNode(new[] { rootMatcher });
-
-            //ITagNameResolver resolver = TypeNameTagNameResolver.Instance;
-            //if (!resolver.Resolve(root, out var rootTag))
-            //{
-            //    throw new Exception("TODO: Exception type and message");
-            //}
-
-            //Root = new SchemaNode(new NodeMatcher[]
-            //{
-            //    NodeMatcher
-            //        .ForMappings(new ObjectMapper(root, rootTag))
-            //        .Either(
-            //            s => s.MatchTag(rootTag),
-            //            s => s.MatchEmptyTags()
-            //        )
-            //        .Create(),
-            //});
+            rootMatcher = typeMatchers.GetNodeMatcher(root);
+            Root = new MultipleNodeMatchersIterator(new[] { rootMatcher });
         }
+
+        public override string ToString() => Root.ToString()!;
 
         public ISchemaIterator Root { get; }
 
-        private sealed class NodeMatcherIterator : ISchemaIterator
+        public Document Represent(object? value)
+        {
+            var iterator = Root.EnterValue(value, out var mapper);
+            var content = mapper.Represent(value, iterator);
+
+            return new Document(content, this);
+        }
+
+        private abstract class NodeMatcherIterator : ISchemaIterator
+        {
+            private readonly IEnumerable<NodeMatcher>? valueMatchers;
+
+            public NodeMatcherIterator()
+            {
+            }
+
+            public NodeMatcherIterator(IEnumerable<NodeMatcher> valueMatchers)
+            {
+                this.valueMatchers = valueMatchers ?? throw new ArgumentNullException(nameof(valueMatchers));
+            }
+
+            public abstract ISchemaIterator EnterNode(INode node, out INodeMapper mapper);
+            public abstract ISchemaIterator EnterValue(object? value, out INodeMapper mapper);
+
+            //public ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
+            //{
+            //    var matcher = NodeMatchers.FirstOrDefault(m => m.Matches(node));
+            //    if (matcher != null)
+            //    {
+            //        mapper = matcher.Mapper;
+            //        return EnterMatcher(matcher);
+            //    }
+            //    else
+            //    {
+            //        mapper = new UnresolvedTagMapper(node.Tag, node.Kind);
+            //        return NullSchemaIterator.Instance;
+            //    }
+            //}
+
+            //public ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
+            //{
+            //    var matcher = NodeMatchers.FirstOrDefault(m => m.Matches(value));
+            //    if (matcher != null)
+            //    {
+            //        mapper = matcher.Mapper;
+            //        return EnterMatcher(matcher);
+            //    }
+            //    else
+            //    {
+            //        mapper = new UnresolvedTagMapper(TagName.Empty, NodeKind.Mapping);
+            //        return NullSchemaIterator.Instance;
+            //    }
+            //}
+
+            //private ISchemaIterator EnterMatcher(NodeMatcher matcher)
+            //{
+            //    return matcher is MappingMatcher mappingMatcher
+            //        ? new SingleNodeMatcherIterator(mappingMatcher, mappingMatcher.ItemMatchers)
+            //        : new SingleNodeMatcherIterator(matcher);
+
+
+            //    //switch (matcher)
+            //    //{
+            //    //    case SequenceMatcher sequenceMatcher:
+            //    //        foreach (var itemMatcher in sequenceMatcher.ItemMatchers)
+            //    //        {
+            //    //            if (itemMatcher.Matches(node))
+            //    //            {
+            //    //                mapper = itemMatcher.Mapper;
+            //    //                return new NodeMatcherIterator(itemMatcher);
+            //    //            }
+            //    //        }
+            //    //        break;
+
+            //    //    case MappingMatcher mappingMatcher:
+            //    //        foreach (var (keyMatcher, valueMatchers) in mappingMatcher.ItemMatchers)
+            //    //        {
+            //    //            if (keyMatcher.Matches(node))
+            //    //            {
+            //    //                mapper = keyMatcher.Mapper;
+            //    //                return new NodeMatcherIterator(keyMatcher, valueMatchers);
+            //    //            }
+            //    //        }
+            //    //        break;
+
+            //    //    case ScalarMatcher _:
+            //    //        // Should not happen
+            //    //        break;
+            //    //}
+            //}
+
+            public ISchemaIterator EnterMappingValue()
+            {
+                return valueMatchers != null
+                    ? new MultipleNodeMatchersIterator(valueMatchers)
+                    : NullSchemaIterator.Instance;
+            }
+
+            public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
+            {
+                throw new NotImplementedException();
+            }
+
+            public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
+            {
+                throw new NotImplementedException();
+            }
+
+            public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        private sealed class SingleNodeMatcherIterator : NodeMatcherIterator
         {
             private readonly NodeMatcher matcher;
 
-            public NodeMatcherIterator(NodeMatcher matcher)
+            public SingleNodeMatcherIterator(NodeMatcher matcher)
             {
                 this.matcher = matcher ?? throw new ArgumentNullException(nameof(matcher));
             }
 
-            public ISchemaIterator EnterMapping(IMapping mapping)
+            public SingleNodeMatcherIterator(NodeMatcher matcher, IEnumerable<NodeMatcher> valueMatchers)
+                : base(valueMatchers)
             {
-                throw new NotImplementedException();
+                this.matcher = matcher ?? throw new ArgumentNullException(nameof(matcher));
             }
 
-            public ISchemaIterator EnterMappingValue()
+            //public override IEnumerable<NodeMatcher> NodeMatchers => matcher switch
+            //{
+            //    SequenceMatcher sequenceMatcher => sequenceMatcher.ItemMatchers,
+            //    MappingMatcher mappingMatcher => mappingMatcher.ItemMatchers.Select(m => m.Key),
+            //    ScalarMatcher _ => Enumerable.Empty<NodeMatcher>(),
+            //    _ => throw Invariants.InvalidCase(matcher),
+            //};
+
+            public override ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
             {
-                // throw new NotImplementedException();
-                return NullSchemaIterator.Instance; // TODO
+                switch (matcher)
+                {
+                    case SequenceMatcher sequenceMatcher:
+                        foreach (var itemMatcher in sequenceMatcher.ItemMatchers)
+                        {
+                            if (itemMatcher.Matches(node))
+                            {
+                                mapper = itemMatcher.Mapper;
+                                return new SingleNodeMatcherIterator(itemMatcher);
+                            }
+                        }
+                        break;
+
+                    case MappingMatcher mappingMatcher:
+                        foreach (var (keyMatcher, valueMatchers) in mappingMatcher.ItemMatchers)
+                        {
+                            if (keyMatcher.Matches(node))
+                            {
+                                mapper = keyMatcher.Mapper;
+                                return new SingleNodeMatcherIterator(keyMatcher, valueMatchers);
+                            }
+                        }
+                        break;
+
+                    case ScalarMatcher _:
+                        // Should not happen
+                        break;
+                }
+
+                mapper = new UnresolvedTagMapper(node.Tag);
+                return NullSchemaIterator.Instance;
             }
 
-            public ISchemaIterator EnterScalar(IScalar scalar)
+            public override ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
             {
-                var childMatcher = matcher.Children.FirstOrDefault(c => c.Matches(scalar));
-                return childMatcher != null
-                    ? new NodeMatcherIterator(childMatcher)
-                    : NullSchemaIterator.Instance;
+                switch (matcher)
+                {
+                    case SequenceMatcher sequenceMatcher:
+                        foreach (var itemMatcher in sequenceMatcher.ItemMatchers)
+                        {
+                            if (itemMatcher.Matches(value))
+                            {
+                                mapper = itemMatcher.Mapper;
+                                return new SingleNodeMatcherIterator(itemMatcher);
+                            }
+                        }
+                        break;
+
+                    case MappingMatcher mappingMatcher:
+                        foreach (var (keyMatcher, valueMatchers) in mappingMatcher.ItemMatchers)
+                        {
+                            if (keyMatcher.Matches(value))
+                            {
+                                mapper = keyMatcher.Mapper;
+                                return new SingleNodeMatcherIterator(keyMatcher, valueMatchers);
+                            }
+                        }
+                        break;
+
+                    case ScalarMatcher _:
+                        // Should not happen
+                        break;
+                }
+
+                mapper = new UnresolvedTagMapper(TagName.Empty);
+                return NullSchemaIterator.Instance;
             }
 
-            public ISchemaIterator EnterSequence(ISequence sequence)
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper)
-            {
-                mapper = matcher.Mapper;
-
-                // No need to check whether the node matches,
-                // because that test must necessarily have happened before in EnterMapping.
-                return true;
-            }
+            public override string ToString() => matcher.ToString();
         }
 
-        //private sealed 
-
-        private sealed class SchemaNode : ISchemaIterator
+        private sealed class MultipleNodeMatchersIterator : NodeMatcherIterator
         {
-            private readonly IEnumerable<NodeMatcher> matchers;
+            private IEnumerable<NodeMatcher> nodeMatchers;
 
-            public SchemaNode(IEnumerable<NodeMatcher> matchers)
+            public MultipleNodeMatchersIterator(IEnumerable<NodeMatcher> nodeMatchers)
             {
-                this.matchers = matchers;
+                this.nodeMatchers = nodeMatchers ?? throw new ArgumentNullException(nameof(nodeMatchers));
             }
 
-            public ISchemaIterator EnterScalar(IScalar scalar)
+            public override ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
             {
-                throw new NotImplementedException();
+                var matcher = nodeMatchers.FirstOrDefault(m => m.Matches(node));
+                if (matcher != null)
+                {
+                    mapper = matcher.Mapper;
+                    return new SingleNodeMatcherIterator(matcher);
+                }
+                else
+                {
+                    mapper = new UnresolvedTagMapper(node.Tag);
+                    return NullSchemaIterator.Instance;
+                }
             }
 
-            public ISchemaIterator EnterSequence(ISequence sequence)
+            public override ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
             {
-                throw new NotImplementedException();
+                var matcher = nodeMatchers.FirstOrDefault(m => m.Matches(value));
+                if (matcher != null)
+                {
+                    mapper = matcher.Mapper;
+                    return new SingleNodeMatcherIterator(matcher);
+                }
+                else
+                {
+                    mapper = new UnresolvedTagMapper(TagName.Empty);
+                    return NullSchemaIterator.Instance;
+                }
             }
 
-            public ISchemaIterator EnterMapping(IMapping mapping)
-            {
-                var matcher = matchers.First(m => m.Matches(mapping));
-                return new NodeMatcherIterator(matcher);
-            }
-
-            public ISchemaIterator EnterMappingValue()
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper)
-            {
-                throw new NotImplementedException();
-            }
+            public override string ToString() => string.Join(", ", nodeMatchers.Select(m => m.ToString()).ToArray());
         }
 
         private sealed class NullSchemaIterator : ISchemaIterator
@@ -173,16 +303,22 @@ namespace YamlDotNet.Serialization.Schemas
 
             public static readonly ISchemaIterator Instance = new NullSchemaIterator();
 
-            public ISchemaIterator EnterScalar(IScalar scalar) => this;
-            public ISchemaIterator EnterSequence(ISequence sequence) => this;
-            public ISchemaIterator EnterMapping(IMapping mapping) => this;
-            public ISchemaIterator EnterMappingValue() => this;
+            public IEnumerable<NodeMatcher> NodeMatchers => Enumerable.Empty<NodeMatcher>();
 
-            public bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper)
+            public ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
             {
-                mapper = default;
-                return false;
+                mapper = new UnresolvedTagMapper(node.Tag);
+                return this;
             }
+
+            public ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
+            {
+                mapper = new UnresolvedTagMapper(TagName.Empty);
+                return this;
+            }
+
+            //public ISchemaIterator EnterValue(object? value) => this;
+            public ISchemaIterator EnterMappingValue() => this;
 
             public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
             {

@@ -30,8 +30,8 @@ namespace YamlDotNet.Helpers
 
         public void AddPath(string path) => recursionPath.Push(path);
 
-        public InvalidRecursionException(string message, string path, Exception innerException)
-            : base(message, innerException)
+        public InvalidRecursionException(string message, string path)
+            : base(message)
         {
             AddPath(path);
         }

@@ -22,33 +22,28 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using YamlDotNet.Core;
 using YamlDotNet.Helpers;
-using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
 
 namespace YamlDotNet.Serialization.Schemas
 {
     public delegate NodeMatcher NodeMatcherFactory(Type sourceType, Type matchedType, Func<Type, NodeMatcher> nodeMapperLookup);
+    public delegate (NodeMatcher nodeMatcher, Action? afterCreation) TwoStepNodeMatcherFactory(Type sourceType, Type matchedType, Func<Type, NodeMatcher> nodeMapperLookup);
 
     public sealed class TypeMatcherTable : IEnumerable
     {
         private readonly ICache<Type, NodeMatcher> nodeMatchersByType;
-        private readonly ICache<TagName, INodeMapper> nodeMappersByTag;
-        private readonly IDictionary<Type, NodeMatcherFactory> nodeMatcherFactories = new Dictionary<Type, NodeMatcherFactory>();
+        private readonly IDictionary<Type, TwoStepNodeMatcherFactory> nodeMatcherFactories = new Dictionary<Type, TwoStepNodeMatcherFactory>();
 
         public TypeMatcherTable(bool requireThreadSafety)
         {
             if (requireThreadSafety)
             {
                 nodeMatchersByType = new ThreadSafeCache<Type, NodeMatcher>();
-                nodeMappersByTag = new ThreadSafeCache<TagName, INodeMapper>();
             }
             else
             {
                 nodeMatchersByType = new SingleThreadCache<Type, NodeMatcher>();
-                nodeMappersByTag = new SingleThreadCache<TagName, INodeMapper>();
             }
         }
 
@@ -61,10 +56,14 @@ namespace YamlDotNet.Serialization.Schemas
         public void Add(Type type, NodeMatcher nodeMatcher)
         {
             nodeMatchersByType.Add(type, nodeMatcher);
-            nodeMappersByTag.GetOrAdd(nodeMatcher.Mapper.Tag, () => nodeMatcher.Mapper);
         }
 
         public void Add(Type type, NodeMatcherFactory nodeMatcherFactory)
+        {
+            nodeMatcherFactories.Add(type, (s, m, l) => (nodeMatcherFactory(s, m, l), null));
+        }
+
+        public void Add(Type type, TwoStepNodeMatcherFactory nodeMatcherFactory)
         {
             nodeMatcherFactories.Add(type, nodeMatcherFactory);
         }
@@ -78,40 +77,33 @@ namespace YamlDotNet.Serialization.Schemas
                 throw new ArgumentException("Cannot get a node matcher for a generic parameter.", nameof(type));
             }
 
-            return nodeMatchersByType.GetOrAdd(type, () =>
+            return nodeMatchersByType.GetOrAdd(type, ResolveNodeMatcher);
+        }
+
+        private (NodeMatcher, Action?) ResolveNodeMatcher(Type type)
+        {
+            foreach (var candidate in GetSuperTypes(type))
             {
-                foreach (var candidate in GetSuperTypes(type))
+                if (candidate != type) // A type cannot be resolved by itself
                 {
-                    if (candidate != type) // A type cannot be resolved by itself
+                    if (nodeMatchersByType.TryGetValue(candidate, out var nodeMatcher))
                     {
-                        if (nodeMatchersByType.TryGetValue(candidate, out var nodeMatcher))
-                        {
-                            return nodeMatcher;
-                        }
-                    }
-
-                    if (nodeMatcherFactories.TryGetValue(candidate, out var concreteMatcherFactory))
-                    {
-                        var nodeMatcher = concreteMatcherFactory(type, candidate, GetNodeMatcher);
-                        nodeMappersByTag.GetOrAdd(nodeMatcher.Mapper.Tag, () => nodeMatcher.Mapper);
-                        return nodeMatcher;
-                    }
-
-                    if (candidate.IsGenericType() && nodeMatcherFactories.TryGetValue(candidate.GetGenericTypeDefinition(), out var genericMatcherFactory))
-                    {
-                        var nodeMatcher = genericMatcherFactory(type, candidate, GetNodeMatcher);
-                        nodeMappersByTag.GetOrAdd(nodeMatcher.Mapper.Tag, () => nodeMatcher.Mapper);
-                        return nodeMatcher;
+                        return (nodeMatcher, null);
                     }
                 }
 
-                throw new ArgumentException($"Could not resolve a tag for type '{type.FullName}'.");
-            });
-        }
+                if (nodeMatcherFactories.TryGetValue(candidate, out var concreteMatcherFactory))
+                {
+                    return concreteMatcherFactory(type, candidate, GetNodeMatcher);
+                }
 
-        public bool TryGetNodeMapper(TagName tag, [NotNullWhen(true)] out INodeMapper? nodeMapper)
-        {
-            return nodeMappersByTag.TryGetValue(tag, out nodeMapper);
+                if (candidate.IsGenericType() && nodeMatcherFactories.TryGetValue(candidate.GetGenericTypeDefinition(), out var genericMatcherFactory))
+                {
+                    return genericMatcherFactory(type, candidate, GetNodeMatcher);
+                }
+            }
+
+            throw new ArgumentException($"Could not resolve a tag for type '{type.FullName}'.");
         }
 
         /// <summary>

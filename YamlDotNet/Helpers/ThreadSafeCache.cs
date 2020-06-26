@@ -21,7 +21,6 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 namespace YamlDotNet.Helpers
@@ -29,47 +28,104 @@ namespace YamlDotNet.Helpers
     internal sealed class ThreadSafeCache<TKey, TValue> : ICache<TKey, TValue>
         where TKey : notnull
     {
-        private readonly ConcurrentDictionary<TKey, Lazy<TValue>> entries = new ConcurrentDictionary<TKey, Lazy<TValue>>();
+        private sealed class CacheEntry
+        {
+            private enum ValueState
+            {
+                NotComputed,
+                Computing,
+                Available,
+            }
+
+            private TValue value;
+            private TwoStepFactory<TKey, TValue>? valueFactory;
+            private ValueState valueState;
+
+            public CacheEntry(TValue value)
+            {
+                this.value = value;
+                this.valueState = ValueState.Available;
+            }
+
+            public CacheEntry(TwoStepFactory<TKey, TValue> valueFactory)
+            {
+                this.value = default!;
+                this.valueFactory = valueFactory ?? throw new ArgumentNullException(nameof(valueFactory));
+                this.valueState = ValueState.NotComputed;
+            }
+
+            public TValue GetValue(TKey key)
+            {
+                if (valueState != ValueState.Available)
+                {
+                    lock (this)
+                    {
+                        switch (valueState)
+                        {
+                            case ValueState.NotComputed:
+                                try
+                                {
+                                    ComputeValue(key);
+                                }
+                                catch (InvalidRecursionException ex)
+                                {
+                                    ex.AddPath(key.ToString()!);
+                                    throw;
+                                }
+                                break;
+
+                            case ValueState.Computing:
+                                throw new InvalidRecursionException(
+                                    "The valueFactory that was passed to SingleThreadCache.GetOrAdd() attempted to call itself.",
+                                    key.ToString()!
+                                );
+                        }
+                    }
+                }
+
+                return this.value;
+            }
+
+            private void ComputeValue(TKey key)
+            {
+                this.valueState = ValueState.Computing;
+                var (value, completeCreation) = valueFactory!(key);
+                this.value = value;
+                this.valueState = ValueState.Available;
+
+                completeCreation?.Invoke();
+
+                this.valueFactory = null;
+            }
+        }
+
+        private readonly ConcurrentDictionary<TKey, CacheEntry> entries = new ConcurrentDictionary<TKey, CacheEntry>();
 
         public void Add(TKey key, TValue value)
         {
-            if (!entries.TryAdd(key, Lazy.FromValue(value)))
+            if (!entries.TryAdd(key, new CacheEntry(value)))
             {
                 throw new ArgumentException($"An element with the same key '{key}' already exists in the cache");
             }
         }
 
-        public TValue GetOrAdd(TKey key, Func<TValue> valueFactory)
+        public TValue GetOrAdd(TKey key, TValue value)
         {
-            // Lazy<T> takes care of detecting recursion in the value factory.
-            var value = entries.GetOrAdd(key, k => new Lazy<TValue>(() =>
-            {
-                try
-                {
-                    return valueFactory();
-                }
-                catch(InvalidRecursionException ex)
-                {
-                    ex.AddPath(key.ToString()!);
-                    throw;
-                }
-                catch (InvalidOperationException ex)
-                {
-                    throw new InvalidRecursionException(
-                        "The valueFactory that was passed to ThreadSafeCache.GetOrAdd() attempted to call itself.",
-                        key.ToString()!,
-                        ex
-                    );
-                }
-            }, isThreadSafe: true));
-            return value.Value;
+            var entry = entries.GetOrAdd(key, k => new CacheEntry(value));
+            return entry.GetValue(key);
+        }
+
+        public TValue GetOrAdd(TKey key, TwoStepFactory<TKey, TValue> valueFactory)
+        {
+            var entry = entries.GetOrAdd(key, k => new CacheEntry(valueFactory));
+            return entry.GetValue(key);
         }
 
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
             if (entries.TryGetValue(key, out var lazyValue))
             {
-                value = lazyValue.Value;
+                value = lazyValue.GetValue(key);
                 return true;
             }
 

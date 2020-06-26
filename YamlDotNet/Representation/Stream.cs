@@ -103,18 +103,18 @@ namespace YamlDotNet.Representation
                 }
                 else if (parser.TryConsume<ScalarEvent>(out var scalar))
                 {
-                    childIterator = iterator.EnterScalar(scalar);
-                    return LoadScalar(scalar, childIterator);
+                    childIterator = iterator.EnterNode(scalar, out var mapper);
+                    return LoadScalar(scalar, mapper);
                 }
                 else if (parser.TryConsume<SequenceStart>(out var sequenceStart))
                 {
-                    childIterator = iterator.EnterSequence(sequenceStart);
-                    return LoadSequence(sequenceStart, childIterator);
+                    childIterator = iterator.EnterNode(sequenceStart, out var mapper);
+                    return LoadSequence(sequenceStart, childIterator, mapper);
                 }
                 else if (parser.TryConsume<MappingStart>(out var mappingStart))
                 {
-                    childIterator = iterator.EnterMapping(mappingStart);
-                    return LoadMapping(mappingStart, childIterator);
+                    childIterator = iterator.EnterNode(mappingStart, out var mapper);
+                    return LoadMapping(mappingStart, childIterator, mapper);
                 }
                 else
                 {
@@ -131,18 +131,15 @@ namespace YamlDotNet.Representation
                 throw new AnchorNotFoundException(anchorAlias.Start, anchorAlias.End, $"Anchor '{anchorAlias.Value}' not found.");
             }
 
-            private Node LoadScalar(ScalarEvent scalar, ISchemaIterator iterator)
+            private Node LoadScalar(ScalarEvent scalar, INodeMapper mapper)
             {
-                var mapper = iterator.ResolveMapper(scalar);
                 var node = new Scalar(mapper, scalar.Value);
                 AddAnchoredNode(scalar.Anchor, node);
                 return node;
             }
 
-            private Node LoadSequence(SequenceStart sequenceStart, ISchemaIterator iterator)
+            private Node LoadSequence(SequenceStart sequenceStart, ISchemaIterator iterator, INodeMapper mapper)
             {
-                var mapper = iterator.ResolveMapper(sequenceStart);
-
                 var items = new List<Node>();
 
                 // Notice that the items collection will still be mutated after constructing the Sequence object.
@@ -159,9 +156,8 @@ namespace YamlDotNet.Representation
                 return sequence;
             }
 
-            private Node LoadMapping(MappingStart mappingStart, ISchemaIterator iterator)
+            private Node LoadMapping(MappingStart mappingStart, ISchemaIterator iterator, INodeMapper mapper)
             {
-                var mapper = iterator.ResolveMapper(mappingStart);
                 var items = new Dictionary<Node, Node>();
 
                 // Notice that the items collection will still be mutated after constructing the Sequence object.
@@ -177,13 +173,7 @@ namespace YamlDotNet.Representation
                     // In that case, we need to enter it. This not done at LoadNode level because we don't always want that.
                     if (keyIterator == null)
                     {
-                        keyIterator = key switch
-                        {
-                            Scalar keyScalar => iterator.EnterScalar(keyScalar),
-                            Sequence keySequence => iterator.EnterSequence(keySequence),
-                            Mapping keyMapping => iterator.EnterMapping(keyMapping),
-                            _ => throw Invariants.InvalidCase(key)
-                        };
+                        keyIterator = iterator.EnterNode(key, out var _);
                     }
 
                     var value = LoadNode(keyIterator.EnterMappingValue(), out _);
@@ -243,17 +233,17 @@ namespace YamlDotNet.Representation
                 switch (node)
                 {
                     case Scalar scalar:
-                        childIterator = iterator.EnterScalar(scalar);
+                        childIterator = iterator.EnterNode(scalar, out _);
                         Dump(scalar, childIterator);
                         break;
 
                     case Sequence sequence:
-                        childIterator = iterator.EnterSequence(sequence);
+                        childIterator = iterator.EnterNode(sequence, out _);
                         Dump(sequence, childIterator);
                         break;
 
                     case Mapping mapping:
-                        childIterator = iterator.EnterMapping(mapping);
+                        childIterator = iterator.EnterNode(mapping, out _);
                         Dump(mapping, childIterator);
                         break;
 
