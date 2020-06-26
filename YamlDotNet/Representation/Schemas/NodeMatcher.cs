@@ -235,7 +235,6 @@ namespace YamlDotNet.Representation.Schemas
             return syntax;
         }
 
-
         public static INodeMatcherBuilderSyntax Either(this INodeMatcherBuilderSyntax syntax, params Func<INodeMatcherBuilderSyntax, INodeMatcherBuilderSyntax>[] choices)
         {
             var predicates = choices
@@ -285,6 +284,7 @@ namespace YamlDotNet.Representation.Schemas
             where TSyntax : INodeMatcherBuilderSyntax<IScalar>
         {
             syntax.AddPredicate(new ScalarValueMatcher(expectedValue));
+            syntax.AddPredicate(new StringValueMatcher(expectedValue));
             return syntax;
         }
 
@@ -578,5 +578,18 @@ namespace YamlDotNet.Representation.Schemas
             }
             return false;
         }
+    }
+
+    public sealed class StringValueMatcher : IValuePredicate
+    {
+        private readonly string expectedValue;
+
+        public StringValueMatcher(string expectedValue)
+        {
+            this.expectedValue = expectedValue ?? throw new ArgumentNullException(nameof(expectedValue));
+        }
+
+        public bool Matches(object? value) => expectedValue.Equals(value);
+        public override string ToString() => $"value='{expectedValue}'";
     }
 }

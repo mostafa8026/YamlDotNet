@@ -78,6 +78,11 @@ namespace YamlDotNet.Test.Representation
             Assert.True(model.Dict.TryGetValue(3, out var three) && three == "three");
 
             var representation = sut.Represent(model);
+
+            yaml = Stream.Dump(new[] { new Document(representation.Content, new ContextFreeSchema(Enumerable.Empty<NodeMatcher>())) });
+            output.WriteLine("=== Dumped YAML ===");
+            output.WriteLine(yaml);
+
             Assert.Equal(content, representation.Content);
 
             //var yaml = Stream.Dump(new[] { representation });
@@ -96,25 +101,11 @@ namespace YamlDotNet.Test.Representation
             var sut = new TypeSchema(typeof(IList<int>), CoreSchema.Instance, BuildTypeMatcherTable());
             output.WriteLine(sut.ToString());
 
-            //var stream = Stream.Load(Yaml.ParserForText(@"
-            //    - 1
-            //    - 2
-            //"), _ => sut);
-
-            //var content = stream.First().Content;
-
-            //var value = content.Mapper.Construct(content);
-            //var model = Assert.IsType<List<int>>(value);
-            //Assert.Equal(new[] { 1, 2 }, model);
-
             var doc = sut.Represent(new[] { 1, 2 });
 
             var yaml = Stream.Dump(new[] { new Document(doc.Content, new ContextFreeSchema(Enumerable.Empty<NodeMatcher>())) });
             output.WriteLine("=== Dumped YAML ===");
             output.WriteLine(yaml);
-
-            //var yaml = Stream.Dump(new[] { doc });
-            //output.WriteLine(yaml);
         }
 
         [Fact]
@@ -155,9 +146,21 @@ namespace YamlDotNet.Test.Representation
             var yaml = Stream.Dump(new[] { new Document(doc.Content, new ContextFreeSchema(Enumerable.Empty<NodeMatcher>())) });
             output.WriteLine("=== Dumped YAML ===");
             output.WriteLine(yaml);
+        }
 
-            //var yaml = Stream.Dump(new[] { doc });
-            //output.WriteLine(yaml);
+        [Fact]
+        public void ObjectMapperTest()
+        {
+            var model = new { one = 1 };
+
+            var sut = new TypeSchema(model.GetType(), CoreSchema.Instance, BuildTypeMatcherTable());
+            output.WriteLine(sut.ToString());
+
+            var doc = sut.Represent(model);
+
+            var yaml = Stream.Dump(new[] { new Document(doc.Content, new ContextFreeSchema(Enumerable.Empty<NodeMatcher>())) });
+            output.WriteLine("=== Dumped YAML ===");
+            output.WriteLine(yaml);
         }
 
         private static TypeMatcherTable BuildTypeMatcherTable()

@@ -68,43 +68,36 @@ namespace YamlDotNet.Serialization.Schemas
 
         public Node Represent(object? native, ISchemaIterator iterator)
         {
-            throw new NotImplementedException("TODO");
-            //if (native == null) // TODO: Do we need this ?
-            //{
-            //    return NullMapper.Default.NullScalar;
-            //}
+            if (native == null) // TODO: Do we need this ?
+            {
+                return NullMapper.Default.NullScalar;
+            }
 
-            //var children = new Dictionary<Node, Node>();
+            var children = new Dictionary<Node, Node>();
 
-            //// Notice that the children collection will still be mutated after constructing the Sequence object.
-            //// We need to create it now in order to update the current path.
-            //var mapping = new Mapping(this, children.AsReadonlyDictionary());
+            // Notice that the children collection will still be mutated after constructing the Sequence object.
+            // We need to create it now in order to update the current path.
+            var mapping = new Mapping(this, children.AsReadonlyDictionary());
 
-            //var mappingIterator = iterator.EnterNode(mapping);
+            // TODO: Type inspector
+            // TODO: Get the properties from the iterator ?
+            var properties = native.GetType().GetPublicProperties();
+            foreach (var property in properties)
+            {
+                var value = property.GetValue(native, null);
+                // TODO: Proper null handling
+                if (value != null)
+                {
+                    var key = property.Name; // TODO: Naming convention
+                    var keyIterator = iterator.EnterValue(key, out var keyMapper);
+                    var keyNode = keyMapper.Represent(key, keyIterator);
 
-            //// TODO: Type inspector
-            //// TODO: Get the properties from the iterator ?
-            //var properties = native.GetType().GetPublicProperties();
-            //foreach (var property in properties)
-            //{
-            //    var value = property.GetValue(native, null);
-            //    // TODO: Proper null handling
-            //    if (value != null)
-            //    {
-            //        var key = property.Name; // TODO: Naming convention
-            //        var keyNode = new Scalar(StringMapper.Default, key);
-
-            //        var keyIterator = mappingIterator.EnterNode(keyNode);
-
-            //        var valueIterator = keyIterator.EnterMappingValue();
-            //        var valueMatcher = valueIterator.NodeMatchers.FirstOrDefault() // TODO: What to do when multiple mappers are returned ?
-            //            ?? throw new Exception("TODO: What to do when no mappers are returned ?");
-
-            //        var valueNode = valueMatcher.Mapper.Represent(value, valueIterator);
-            //        children.Add(keyNode, valueNode);
-            //    }
-            //}
-            //return mapping;
+                    var valueIterator = keyIterator.EnterMappingValue().EnterValue(value, out var valueMapper);
+                    var valueNode = valueMapper.Represent(value, valueIterator);
+                    children.Add(keyNode, valueNode);
+                }
+            }
+            return mapping;
         }
 
         public override string ToString()
