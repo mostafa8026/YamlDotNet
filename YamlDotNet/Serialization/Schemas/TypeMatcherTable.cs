@@ -32,8 +32,9 @@ namespace YamlDotNet.Serialization.Schemas
 
     public sealed class TypeMatcherTable : IEnumerable
     {
+        private readonly List<NodeMatcher> nodeMatchers = new List<NodeMatcher>();
+        private readonly Dictionary<Type, TwoStepNodeMatcherFactory> nodeMatcherFactories = new Dictionary<Type, TwoStepNodeMatcherFactory>();
         private readonly ICache<Type, NodeMatcher> nodeMatchersByType;
-        private readonly IDictionary<Type, TwoStepNodeMatcherFactory> nodeMatcherFactories = new Dictionary<Type, TwoStepNodeMatcherFactory>();
 
         public TypeMatcherTable(bool requireThreadSafety)
         {
@@ -47,16 +48,21 @@ namespace YamlDotNet.Serialization.Schemas
             }
         }
 
+        public void Add(NodeMatcher nodeMatcher)
+        {
+            nodeMatchers.Add(nodeMatcher);
+        }
+
         //public void Add(Type type, INodeMapper nodeMapper)
         //{
         //    throw new NotImplementedException("TODO");
         //    //Add(type, new NodeKindMatcher(nodeMapper));
         //}
 
-        public void Add(Type type, NodeMatcher nodeMatcher)
-        {
-            nodeMatchersByType.Add(type, nodeMatcher);
-        }
+        //public void Add(Type type, NodeMatcher nodeMatcher)
+        //{
+        //    nodeMatchersByType.Add(type, nodeMatcher);
+        //}
 
         public void Add(Type type, NodeMatcherFactory nodeMatcherFactory)
         {
@@ -87,6 +93,14 @@ namespace YamlDotNet.Serialization.Schemas
                 if (candidate != type) // A type cannot be resolved by itself
                 {
                     if (nodeMatchersByType.TryGetValue(candidate, out var nodeMatcher))
+                    {
+                        return (nodeMatcher, null);
+                    }
+                }
+
+                foreach (var nodeMatcher in nodeMatchers)
+                {
+                    if (nodeMatcher.Matches(candidate))
                     {
                         return (nodeMatcher, null);
                     }

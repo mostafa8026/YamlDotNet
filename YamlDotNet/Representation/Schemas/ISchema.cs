@@ -23,38 +23,19 @@ using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation.Schemas
 {
+    public interface ISchema
+    {
+        ISchemaIterator Root { get; }
+    }
+
     public interface ISchemaIterator
     {
         ISchemaIterator EnterNode(INode node, out INodeMapper mapper);
         ISchemaIterator EnterValue(object? value, out INodeMapper mapper);
         ISchemaIterator EnterMappingValue();
 
-        ///// <summary>
-        ///// Attempts to resolve a mapper for the specified node.
-        ///// </summary>
-        ///// <remarks>
-        ///// The <paramref name="node" /> that is passed will always be the same as
-        ///// the one passed initially to access this instance, through the <see cref="EnterNode"/> method.
-        ///// </remarks>
-        //bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper);
-
         bool IsTagImplicit(IScalar scalar, out ScalarStyle style);
         bool IsTagImplicit(ISequence sequence, out SequenceStyle style);
         bool IsTagImplicit(IMapping mapping, out MappingStyle style);
-    }
-
-    //public static class SchemaIteratorExtensions
-    //{
-    //    public static INodeMapper ResolveMapper(this ISchemaIterator iterator, INode node)
-    //    {
-    //        return iterator.TryResolveMapper(node, out var mapper)
-    //            ? mapper
-    //            : new UnresolvedTagMapper(node.Tag, node.Kind);
-    //    }
-    //}
-
-    public interface ISchema
-    {
-        ISchemaIterator Root { get; }
     }
 }

@@ -151,7 +151,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void ObjectMapperTest()
         {
-            var model = new { one = 1 };
+            var model = new { one = 1, two = "abc" };
 
             var sut = new TypeSchema(model.GetType(), CoreSchema.Instance, BuildTypeMatcherTable());
             output.WriteLine(sut.ToString());
@@ -174,26 +174,17 @@ namespace YamlDotNet.Test.Representation
 
             var typeMatchers = new TypeMatcherTable(false)
             {
-                {
-                    typeof(int),
-                    schema.GetNodeMatchersForTag(YamlTagRepository.Integer).First()
-                },
-                {
-                    typeof(string),
-                    schema.GetNodeMatchersForTag(YamlTagRepository.String).First()
-                },
-
+                schema.GetNodeMatchersForTag(YamlTagRepository.Integer).First(),
+                schema.GetNodeMatchersForTag(YamlTagRepository.String).First(),
                 //{
                 //    typeof(int),
-                //    NodeMatcher
-                //        .ForScalars(.IntegerMapper.Canonical)
-                            
-                //    new NodeKindMatcher(NodeKind.Scalar, CoreSchema.IntegerMapper.Canonical)
+                //    schema.GetNodeMatchersForTag(YamlTagRepository.Integer).First()
                 //},
-                //    {
-                //        typeof(string),
-                //        new NodeKindMatcher(NodeKind.Scalar, GetCoreMapper(YamlTagRepository.String))
-                //    },
+                //{
+                //    typeof(string),
+                //    schema.GetNodeMatchersForTag(YamlTagRepository.String).First()
+                //},
+
                 {
                     typeof(ICollection<>),
                     (concrete, iCollection, lookupMatcher) =>
@@ -283,6 +274,7 @@ namespace YamlDotNet.Test.Representation
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)
                             )
+                            .MatchTypes(concrete)
                             .Create();
 
                         return (

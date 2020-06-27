@@ -69,73 +69,6 @@ namespace YamlDotNet.Serialization.Schemas
             public abstract ISchemaIterator EnterNode(INode node, out INodeMapper mapper);
             public abstract ISchemaIterator EnterValue(object? value, out INodeMapper mapper);
 
-            //public ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
-            //{
-            //    var matcher = NodeMatchers.FirstOrDefault(m => m.Matches(node));
-            //    if (matcher != null)
-            //    {
-            //        mapper = matcher.Mapper;
-            //        return EnterMatcher(matcher);
-            //    }
-            //    else
-            //    {
-            //        mapper = new UnresolvedTagMapper(node.Tag, node.Kind);
-            //        return NullSchemaIterator.Instance;
-            //    }
-            //}
-
-            //public ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
-            //{
-            //    var matcher = NodeMatchers.FirstOrDefault(m => m.Matches(value));
-            //    if (matcher != null)
-            //    {
-            //        mapper = matcher.Mapper;
-            //        return EnterMatcher(matcher);
-            //    }
-            //    else
-            //    {
-            //        mapper = new UnresolvedTagMapper(TagName.Empty, NodeKind.Mapping);
-            //        return NullSchemaIterator.Instance;
-            //    }
-            //}
-
-            //private ISchemaIterator EnterMatcher(NodeMatcher matcher)
-            //{
-            //    return matcher is MappingMatcher mappingMatcher
-            //        ? new SingleNodeMatcherIterator(mappingMatcher, mappingMatcher.ItemMatchers)
-            //        : new SingleNodeMatcherIterator(matcher);
-
-
-            //    //switch (matcher)
-            //    //{
-            //    //    case SequenceMatcher sequenceMatcher:
-            //    //        foreach (var itemMatcher in sequenceMatcher.ItemMatchers)
-            //    //        {
-            //    //            if (itemMatcher.Matches(node))
-            //    //            {
-            //    //                mapper = itemMatcher.Mapper;
-            //    //                return new NodeMatcherIterator(itemMatcher);
-            //    //            }
-            //    //        }
-            //    //        break;
-
-            //    //    case MappingMatcher mappingMatcher:
-            //    //        foreach (var (keyMatcher, valueMatchers) in mappingMatcher.ItemMatchers)
-            //    //        {
-            //    //            if (keyMatcher.Matches(node))
-            //    //            {
-            //    //                mapper = keyMatcher.Mapper;
-            //    //                return new NodeMatcherIterator(keyMatcher, valueMatchers);
-            //    //            }
-            //    //        }
-            //    //        break;
-
-            //    //    case ScalarMatcher _:
-            //    //        // Should not happen
-            //    //        break;
-            //    //}
-            //}
-
             public ISchemaIterator EnterMappingValue()
             {
                 return valueMatchers != null
@@ -211,35 +144,38 @@ namespace YamlDotNet.Serialization.Schemas
 
             public override ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
             {
-                switch (matcher)
+                if (value != null)
                 {
-                    case SequenceMatcher sequenceMatcher:
-                        foreach (var itemMatcher in sequenceMatcher.ItemMatchers)
-                        {
-                            if (itemMatcher.Matches(value))
+                    var typeOfValue = value.GetType();
+                    switch (matcher)
+                    {
+                        case SequenceMatcher sequenceMatcher:
+                            foreach (var itemMatcher in sequenceMatcher.ItemMatchers)
                             {
-                                mapper = itemMatcher.Mapper;
-                                return new SingleNodeMatcherIterator(itemMatcher);
+                                if (itemMatcher.Matches(typeOfValue))
+                                {
+                                    mapper = itemMatcher.Mapper;
+                                    return new SingleNodeMatcherIterator(itemMatcher);
+                                }
                             }
-                        }
-                        break;
+                            break;
 
-                    case MappingMatcher mappingMatcher:
-                        foreach (var (keyMatcher, valueMatchers) in mappingMatcher.ItemMatchers)
-                        {
-                            if (keyMatcher.Matches(value))
+                        case MappingMatcher mappingMatcher:
+                            foreach (var (keyMatcher, valueMatchers) in mappingMatcher.ItemMatchers)
                             {
-                                mapper = keyMatcher.Mapper;
-                                return new SingleNodeMatcherIterator(keyMatcher, valueMatchers);
+                                if (keyMatcher.Matches(typeOfValue))
+                                {
+                                    mapper = keyMatcher.Mapper;
+                                    return new SingleNodeMatcherIterator(keyMatcher, valueMatchers);
+                                }
                             }
-                        }
-                        break;
+                            break;
 
-                    case ScalarMatcher _:
-                        // Should not happen
-                        break;
+                        case ScalarMatcher _:
+                            // Should not happen
+                            break;
+                    }
                 }
-
                 mapper = new UnresolvedTagMapper(TagName.Empty);
                 return NullSchemaIterator.Instance;
             }
@@ -249,7 +185,7 @@ namespace YamlDotNet.Serialization.Schemas
 
         private sealed class MultipleNodeMatchersIterator : NodeMatcherIterator
         {
-            private IEnumerable<NodeMatcher> nodeMatchers;
+            private readonly IEnumerable<NodeMatcher> nodeMatchers;
 
             public MultipleNodeMatchersIterator(IEnumerable<NodeMatcher> nodeMatchers)
             {
@@ -273,17 +209,19 @@ namespace YamlDotNet.Serialization.Schemas
 
             public override ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
             {
-                var matcher = nodeMatchers.FirstOrDefault(m => m.Matches(value));
-                if (matcher != null)
+                if (value != null)
                 {
-                    mapper = matcher.Mapper;
-                    return new SingleNodeMatcherIterator(matcher);
+                    var typeOfValue = value.GetType();
+                    var matcher = nodeMatchers.FirstOrDefault(m => m.Matches(typeOfValue));
+                    if (matcher != null)
+                    {
+                        mapper = matcher.Mapper;
+                        return new SingleNodeMatcherIterator(matcher);
+                    }
                 }
-                else
-                {
-                    mapper = new UnresolvedTagMapper(TagName.Empty);
-                    return NullSchemaIterator.Instance;
-                }
+
+                mapper = new UnresolvedTagMapper(TagName.Empty);
+                return NullSchemaIterator.Instance;
             }
 
             public override string ToString() => string.Join(", ", nodeMatchers.Select(m => m.ToString()).ToArray());
@@ -309,7 +247,6 @@ namespace YamlDotNet.Serialization.Schemas
                 return this;
             }
 
-            //public ISchemaIterator EnterValue(object? value) => this;
             public ISchemaIterator EnterMappingValue() => this;
 
             public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)

@@ -19,7 +19,6 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-using System;
 using System.Collections.Generic;
 using YamlDotNet.Core;
 
@@ -129,6 +128,7 @@ namespace YamlDotNet.Representation.Schemas
                 )
                 .MatchPattern("^(true|True|TRUE|false|False|FALSE)$")
                 .MatchEmptyTags()
+                .MatchTypes(typeof(bool))
                 .Create();
 
             foreach (var format in IntegerMapper.Canonical.Formats)
@@ -137,6 +137,16 @@ namespace YamlDotNet.Representation.Schemas
                     .ForScalars(format.Mapper)
                     .MatchPattern(format.Pattern)
                     .MatchEmptyTags()
+                    .MatchTypes(
+                        typeof(int),
+                        typeof(long),
+                        typeof(short),
+                        typeof(sbyte),
+                        typeof(uint),
+                        typeof(ulong),
+                        typeof(ushort),
+                        typeof(byte)
+                    )
                     .Create();
             }
 
@@ -146,12 +156,17 @@ namespace YamlDotNet.Representation.Schemas
                     .ForScalars(format.Mapper)
                     .MatchPattern(format.Pattern)
                     .MatchEmptyTags()
+                    .MatchTypes(
+                        typeof(float),
+                        typeof(double)
+                    )
                     .Create();
             }
 
             yield return NodeMatcher
                 .ForScalars(StringMapper.Default, ScalarStyle.SingleQuoted)
                 .MatchAnyNonSpecificTags()
+                .MatchTypes(typeof(string))
                 .Create();
 
             yield return NodeMatcher

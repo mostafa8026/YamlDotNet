@@ -104,14 +104,13 @@ namespace YamlDotNet.Serialization
                 throw new ArgumentNullException(nameof(type));
             }
 
-            throw new NotImplementedException("TODO");
-            //var schema = new TypeSchema(type, baseSchema, typeMatchers);
+            var schema = new TypeSchema(type, baseSchema, typeMatchers);
 
-            //var documents = Representation.Stream.Load(parser, _ => schema);
-            //var document = documents.First();
+            var documents = Representation.Stream.Load(parser, _ => schema);
+            var document = documents.First();
 
-            //var native = document.Content.Mapper.Construct(document.Content);
-            //return TypeConverter.ChangeType(native, type);
+            var native = document.Content.Mapper.Construct(document.Content);
+            return TypeConverter.ChangeType(native, type);
         }
     }
 }

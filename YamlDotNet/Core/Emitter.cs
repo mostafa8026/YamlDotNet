@@ -859,13 +859,6 @@ namespace YamlDotNet.Core
             var scalar = (Scalar)evt;
 
             var style = scalar.Style;
-            var noTag = tagData.handle == null && tagData.suffix == null;
-
-            // TODO: 
-            //if (noTag && !scalar.Tag.IsImplicit)
-            //{
-            //    throw new YamlException("Neither tag nor isImplicit flags are specified.");
-            //}
 
             if (style == ScalarStyle.Any)
             {
@@ -892,11 +885,6 @@ namespace YamlDotNet.Core
                 {
                     style = ScalarStyle.SingleQuoted;
                 }
-                // TODO: 
-                //if (noTag && !scalar.Tag.IsImplicit)
-                //{
-                //    style = ScalarStyle.SingleQuoted;
-                //}
             }
 
             if (style == ScalarStyle.SingleQuoted)

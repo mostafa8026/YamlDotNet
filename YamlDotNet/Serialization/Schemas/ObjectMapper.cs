@@ -89,15 +89,31 @@ namespace YamlDotNet.Serialization.Schemas
                 if (value != null)
                 {
                     var key = property.Name; // TODO: Naming convention
-                    var keyIterator = iterator.EnterValue(key, out var keyMapper);
+
+                    // Here we use EnterNode instead of EnterValue because we'll need to match the value
+                    // TODO: If we iterated the children from the iterator, we wouldn't need to do this!
+                    var keyIterator = iterator.EnterNode(new PropertyName(key), out var keyMapper);
                     var keyNode = keyMapper.Represent(key, keyIterator);
 
                     var valueIterator = keyIterator.EnterMappingValue().EnterValue(value, out var valueMapper);
                     var valueNode = valueMapper.Represent(value, valueIterator);
+
                     children.Add(keyNode, valueNode);
                 }
             }
             return mapping;
+        }
+
+        private sealed class PropertyName : IScalar
+        {
+            public PropertyName(string value)
+            {
+                Value = value;
+            }
+
+            public string Value { get; }
+            public NodeKind Kind => NodeKind.Scalar;
+            public TagName Tag => TagName.Empty;
         }
 
         public override string ToString()

@@ -151,18 +151,6 @@ namespace YamlDotNet.Representation.Schemas
                 return false;
             }
 
-            private sealed class NonSpecificScalar : IScalar
-            {
-                public NonSpecificScalar(string value)
-                {
-                    Value = value;
-                }
-
-                public string Value { get; }
-                public NodeKind Kind => NodeKind.Scalar;
-                public TagName Tag => TagName.Empty;
-            }
-
             public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
             {
                 foreach (SequenceMatcher matcher in matchersByTag[sequence.Tag])

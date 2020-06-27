@@ -40,7 +40,7 @@ namespace YamlDotNet.Representation.Schemas
         public INodeMapper Mapper { get; }
 
         public abstract bool Matches(INode node);
-        public abstract bool Matches(object? value);
+        public abstract bool Matches(Type type);
 
         public override string ToString()
         {
@@ -143,11 +143,11 @@ namespace YamlDotNet.Representation.Schemas
         where TNode : class, INode
     {
         protected readonly List<INodePredicate<TNode>> nodePredicates = new List<INodePredicate<TNode>>();
-        protected readonly List<IValuePredicate> valuePredicates = new List<IValuePredicate>();
+        protected readonly List<ITypePredicate> valuePredicates = new List<ITypePredicate>();
 
         public void AddPredicate(INodePredicate<TNode> predicate) => nodePredicates.Add(predicate);
         public void AddPredicate(INodePredicate<INode> predicate) => nodePredicates.Add(predicate);
-        public void AddPredicate(IValuePredicate predicate) => valuePredicates.Add(predicate);
+        public void AddPredicate(ITypePredicate predicate) => valuePredicates.Add(predicate);
 
         public bool Matches(TNode node) => nodePredicates.All(p => p.Matches(node));
 
@@ -170,9 +170,9 @@ namespace YamlDotNet.Representation.Schemas
     internal sealed class NodeMatcherBuilderSyntax<TNode, TMatcher> : NodeMatcherBuilderSyntax<TNode>, INodeMatcherBuilderSyntax<TNode, TMatcher>
         where TNode : class, INode
     {
-        private readonly Func<IEnumerable<INodePredicate<TNode>>, IEnumerable<IValuePredicate>, TMatcher> factory;
+        private readonly Func<IEnumerable<INodePredicate<TNode>>, IEnumerable<ITypePredicate>, TMatcher> factory;
 
-        public NodeMatcherBuilderSyntax(Func<IEnumerable<INodePredicate<TNode>>, IEnumerable<IValuePredicate>, TMatcher> factory)
+        public NodeMatcherBuilderSyntax(Func<IEnumerable<INodePredicate<TNode>>, IEnumerable<ITypePredicate>, TMatcher> factory)
         {
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
         }
@@ -183,7 +183,7 @@ namespace YamlDotNet.Representation.Schemas
     public interface INodeMatcherBuilderSyntax
     {
         void AddPredicate(INodePredicate<INode> predicate);
-        void AddPredicate(IValuePredicate predicate);
+        void AddPredicate(ITypePredicate predicate);
     }
 
     public interface INodeMatcherBuilderSyntax<out TNode> : INodeMatcherBuilderSyntax
@@ -284,7 +284,6 @@ namespace YamlDotNet.Representation.Schemas
             where TSyntax : INodeMatcherBuilderSyntax<IScalar>
         {
             syntax.AddPredicate(new ScalarValueMatcher(expectedValue));
-            syntax.AddPredicate(new StringValueMatcher(expectedValue));
             return syntax;
         }
 
@@ -307,10 +306,10 @@ namespace YamlDotNet.Representation.Schemas
         where TStyle : Enum
     {
         protected readonly ICollection<INodePredicate<TNode>> nodePredicates;
-        protected readonly ICollection<IValuePredicate> valuePredicates;
+        protected readonly ICollection<ITypePredicate> typePredicates;
 
         // Constructor is internal to prevent extensibility
-        internal NodeKindMatcher(INodeMapper mapper, TStyle suggestedStyle, IEnumerable<INodePredicate<TNode>> nodePredicates, IEnumerable<IValuePredicate> valuePredicates) : base(mapper)
+        internal NodeKindMatcher(INodeMapper mapper, TStyle suggestedStyle, IEnumerable<INodePredicate<TNode>> nodePredicates, IEnumerable<ITypePredicate> typePredicates) : base(mapper)
         {
             SuggestedStyle = Invariants.ValidEnum(suggestedStyle, nameof(suggestedStyle));
 
@@ -321,12 +320,12 @@ namespace YamlDotNet.Representation.Schemas
 
             this.nodePredicates = nodePredicates.ToList();
 
-            if (valuePredicates is null)
+            if (typePredicates is null)
             {
-                throw new ArgumentNullException(nameof(valuePredicates));
+                throw new ArgumentNullException(nameof(typePredicates));
             }
 
-            this.valuePredicates = valuePredicates.ToList();
+            this.typePredicates = typePredicates.ToList();
         }
 
         protected abstract NodeKind MatchedNodeKind { get; }
@@ -335,7 +334,24 @@ namespace YamlDotNet.Representation.Schemas
 
         public override bool Matches(INode node) => node is TNode specificNode && Matches(specificNode);
         public virtual bool Matches(TNode node) => nodePredicates.All(p => p.Matches(node));
-        public override bool Matches(object? value) => valuePredicates.All(p => p.Matches(value));
+        public override bool Matches(Type type)
+        {
+            using var enumerator = typePredicates.GetEnumerator();
+            if (enumerator.MoveNext())
+            {
+                do
+                {
+                    if (!enumerator.Current.Matches(type))
+                    {
+                        return false;
+                    }
+                } while (enumerator.MoveNext());
+                return true;
+            }
+
+            // If there were no type predicates, do not match
+            return false;
+        }
 
         protected override void AddStringRepresentation(StringBuilder output)
         {
@@ -359,7 +375,7 @@ namespace YamlDotNet.Representation.Schemas
     /// </summary>
     public class ScalarMatcher : NodeKindMatcher<IScalar, ScalarStyle>
     {
-        public ScalarMatcher(INodeMapper mapper, ScalarStyle suggestedStyle, IEnumerable<INodePredicate<IScalar>> nodePredicates, IEnumerable<IValuePredicate> valuePredicates) : base(mapper, suggestedStyle, nodePredicates, valuePredicates)
+        public ScalarMatcher(INodeMapper mapper, ScalarStyle suggestedStyle, IEnumerable<INodePredicate<IScalar>> nodePredicates, IEnumerable<ITypePredicate> valuePredicates) : base(mapper, suggestedStyle, nodePredicates, valuePredicates)
         {
         }
 
@@ -375,7 +391,7 @@ namespace YamlDotNet.Representation.Schemas
     {
         private readonly List<NodeMatcher> itemMatchers = new List<NodeMatcher>();
 
-        public SequenceMatcher(INodeMapper mapper, SequenceStyle suggestedStyle, IEnumerable<INodePredicate<ISequence>> nodePredicates, IEnumerable<IValuePredicate> valuePredicates) : base(mapper, suggestedStyle, nodePredicates, valuePredicates)
+        public SequenceMatcher(INodeMapper mapper, SequenceStyle suggestedStyle, IEnumerable<INodePredicate<ISequence>> nodePredicates, IEnumerable<ITypePredicate> valuePredicates) : base(mapper, suggestedStyle, nodePredicates, valuePredicates)
         {
         }
 
@@ -401,7 +417,7 @@ namespace YamlDotNet.Representation.Schemas
     {
         private readonly List<KeyValuePair<NodeMatcher, IEnumerable<NodeMatcher>>> itemMatchers = new List<KeyValuePair<NodeMatcher, IEnumerable<NodeMatcher>>>();
 
-        public MappingMatcher(INodeMapper mapper, MappingStyle suggestedStyle, IEnumerable<INodePredicate<IMapping>> nodePredicates, IEnumerable<IValuePredicate> valuePredicates) : base(mapper, suggestedStyle, nodePredicates, valuePredicates)
+        public MappingMatcher(INodeMapper mapper, MappingStyle suggestedStyle, IEnumerable<INodePredicate<IMapping>> nodePredicates, IEnumerable<ITypePredicate> valuePredicates) : base(mapper, suggestedStyle, nodePredicates, valuePredicates)
         {
         }
 
@@ -435,9 +451,9 @@ namespace YamlDotNet.Representation.Schemas
         bool Matches(TNode node);
     }
 
-    public interface IValuePredicate
+    public interface ITypePredicate
     {
-        bool Matches(object? value);
+        bool Matches(Type type);
     }
 
     public interface IScalarValuePredicate : INodePredicate<IScalar> { }
@@ -559,7 +575,7 @@ namespace YamlDotNet.Representation.Schemas
         public override string ToString() => $"value~'{pattern}'";
     }
 
-    public sealed class TypeMatcher : IValuePredicate
+    public sealed class TypeMatcher : ITypePredicate
     {
         private readonly Type[] types;
 
@@ -568,28 +584,9 @@ namespace YamlDotNet.Representation.Schemas
             this.types = types ?? throw new ArgumentNullException(nameof(types));
         }
 
-        public bool Matches(object? value)
+        public bool Matches(Type type)
         {
-            // TODO: This should probably be more elaborate
-            if (value != null)
-            {
-                var actualType = value.GetType();
-                return types.Any(t => t.IsAssignableFrom(actualType));
-            }
-            return false;
+            return types.Any(t => t.IsAssignableFrom(type));
         }
-    }
-
-    public sealed class StringValueMatcher : IValuePredicate
-    {
-        private readonly string expectedValue;
-
-        public StringValueMatcher(string expectedValue)
-        {
-            this.expectedValue = expectedValue ?? throw new ArgumentNullException(nameof(expectedValue));
-        }
-
-        public bool Matches(object? value) => expectedValue.Equals(value);
-        public override string ToString() => $"value='{expectedValue}'";
     }
 }
