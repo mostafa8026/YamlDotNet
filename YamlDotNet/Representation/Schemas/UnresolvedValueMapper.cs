@@ -19,23 +19,30 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-using System;
 using YamlDotNet.Core;
 
-namespace YamlDotNet.Serialization.Schemas
+namespace YamlDotNet.Representation.Schemas
 {
-    public interface ITagNameResolver
+    public sealed class UnresolvedValueMapper : INodeMapper
     {
-        bool Resolve(Type type, out TagName tag);
-    }
-    
-    public static class TagNameResolverExtensions
-    {
-        public static TagName Resolve(this ITagNameResolver tagNameResolver, Type type)
+        private readonly object? value;
+
+        public TagName Tag => TagName.Empty;
+        public INodeMapper Canonical => this;
+
+        public UnresolvedValueMapper(object? value)
         {
-            return tagNameResolver.Resolve(type, out var tag)
-                ? tag
-                : throw new ArgumentException($"Could not resolve a tag for type '{type.FullName}'.");
+            this.value = value;
+        }
+
+        public object? Construct(Node node)
+        {
+            throw new UnresolvedValueException(value);
+        }
+
+        public Node Represent(object? native, ISchemaIterator iterator)
+        {
+            throw new UnresolvedValueException(value);
         }
     }
 }

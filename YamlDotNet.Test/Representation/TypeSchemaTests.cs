@@ -43,7 +43,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void X()
         {
-            var sut = new TypeSchema(typeof(SimpleModel), CoreSchema.Instance, BuildTypeMatcherTable());
+            var sut = new TypeSchema(typeof(SimpleModel), BuildTypeMatcherTable());
             output.WriteLine(sut.ToString());
 
             var stream = Stream.Load(Yaml.ParserForText(@"
@@ -98,7 +98,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void SequenceMapperTest()
         {
-            var sut = new TypeSchema(typeof(IList<int>), CoreSchema.Instance, BuildTypeMatcherTable());
+            var sut = new TypeSchema(typeof(IList<int>), BuildTypeMatcherTable());
             output.WriteLine(sut.ToString());
 
             var doc = sut.Represent(new[] { 1, 2 });
@@ -111,7 +111,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void SequenceMapperTest2()
         {
-            var sut = new TypeSchema(typeof(IList<IList<int>>), CoreSchema.Instance, BuildTypeMatcherTable());
+            var sut = new TypeSchema(typeof(IList<IList<int>>), BuildTypeMatcherTable());
             output.WriteLine(sut.ToString());
 
             //var stream = Stream.Load(Yaml.ParserForText(@"
@@ -138,7 +138,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void MappingMapperTest()
         {
-            var sut = new TypeSchema(typeof(IDictionary<int, string>), CoreSchema.Instance, BuildTypeMatcherTable());
+            var sut = new TypeSchema(typeof(IDictionary<int, string>), BuildTypeMatcherTable());
             output.WriteLine(sut.ToString());
 
             var doc = sut.Represent(new Dictionary<int, string> { { 1, "one" }, { 2, "two" } });
@@ -153,7 +153,7 @@ namespace YamlDotNet.Test.Representation
         {
             var model = new { one = 1, two = "abc" };
 
-            var sut = new TypeSchema(model.GetType(), CoreSchema.Instance, BuildTypeMatcherTable());
+            var sut = new TypeSchema(model.GetType(), BuildTypeMatcherTable());
             output.WriteLine(sut.ToString());
 
             var doc = sut.Represent(model);
@@ -174,16 +174,8 @@ namespace YamlDotNet.Test.Representation
 
             var typeMatchers = new TypeMatcherTable(false)
             {
-                schema.GetNodeMatchersForTag(YamlTagRepository.Integer).First(),
-                schema.GetNodeMatchersForTag(YamlTagRepository.String).First(),
-                //{
-                //    typeof(int),
-                //    schema.GetNodeMatchersForTag(YamlTagRepository.Integer).First()
-                //},
-                //{
-                //    typeof(string),
-                //    schema.GetNodeMatchersForTag(YamlTagRepository.String).First()
-                //},
+                schema.GetNodeMatcherForTag(YamlTagRepository.Integer),
+                schema.GetNodeMatcherForTag(YamlTagRepository.String),
 
                 {
                     typeof(ICollection<>),

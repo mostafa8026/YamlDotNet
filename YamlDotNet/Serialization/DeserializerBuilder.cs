@@ -353,70 +353,117 @@ namespace YamlDotNet.Serialization
 
             var typeMatchers = new TypeMatcherTable(requireThreadSafety: true) // TODO: Configure requireThreadSafety
             {
+                CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.Boolean),
+                CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.Integer),
+                CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.FloatingPoint),
+                CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.String),
 
+                {
+                    typeof(ICollection<>),
+                    (concrete, iCollection, lookupMatcher) =>
+                    {
+                        var tag = tagNameResolver.Resolve(concrete);
 
-                //{ typeof(long), integerMapper }, // This is the 'main' one and needs to go first
-                //{ typeof(sbyte), integerMapper },
-                //{ typeof(byte), integerMapper },
-                //{ typeof(short), integerMapper },
-                //{ typeof(ushort), integerMapper },
-                //{ typeof(int), integerMapper },
-                //{ typeof(uint), integerMapper },
-                //{ typeof(ulong), integerMapper },
+                        var genericArguments = iCollection.GetGenericArguments();
+                        var itemType = genericArguments[0];
 
-                //{ typeof(double), floatingPointMapper }, // This is the 'main' one and needs to go first
-                //{ typeof(float), floatingPointMapper },
+                        var implementation = concrete;
+                        if (concrete.IsInterface())
+                        {
+                            implementation = typeof(List<>).MakeGenericType(genericArguments);
+                        }
 
-                //{ typeof(string), stringMapper }, // This is the 'main' one and needs to go first
-                //{ typeof(char), stringMapper }, // TODO: Test this
+                        var matcher = NodeMatcher
+                            .ForSequences(SequenceMapper.Create(tag, concrete, implementation, itemType))
+                            .Either(
+                                s => s.MatchEmptyTags(),
+                                s => s.MatchTag(tag)
+                            )
+                            .MatchTypes(concrete)
+                            .Create();
 
-                //{ typeof(bool), booleanMapper },
+                        return (
+                            matcher,
+                            () => matcher.AddItemMatcher(lookupMatcher(itemType))
+                        );
+                    }
+                },
+                {
+                    typeof(IDictionary<,>),
+                    (concrete, iDictionary, lookupMatcher) =>
+                    {
+                        var tag = tagNameResolver.Resolve(concrete);
 
-                //{
-                //    typeof(ICollection<>),
-                //    (concrete, iCollection, lookupMatcher) =>
-                //    {
-                //        var itemType = iCollection.GetGenericArguments()[0];
-                //        return new NodeKindMatcher(NodeKind.Sequence, SequenceMapper.Create(concrete, itemType))
-                //        {
-                //            lookupMatcher(itemType)
-                //        };
-                //    }
-                //},
-                //{
-                //    typeof(IDictionary<,>),
-                //    (concrete, iDictionary, lookupMatcher) =>
-                //    {
-                //        var types = iDictionary.GetGenericArguments();
-                //        var keyType = types[0];
-                //        var valueType = types[1];
+                        var genericArguments = iDictionary.GetGenericArguments();
+                        var keyType = genericArguments[0];
+                        var valueType = genericArguments[1];
 
-                //        var keyMapper = lookupMatcher(keyType).Value;
+                        var implementation = concrete;
+                        if (concrete.IsInterface())
+                        {
+                            implementation = typeof(Dictionary<,>).MakeGenericType(genericArguments);
+                        }
 
-                //        return new NodeKindMatcher(NodeKind.Mapping, MappingMapper.Create(concrete, keyType, valueType))
-                //        {
-                //            new NodeKindMatcher(keyMapper.MappedNodeKind, keyMapper)
-                //            {
-                //                lookupMatcher(valueType)
-                //            }
-                //        };
-                //    }
-                //},
-                //{
-                //    typeof(object),
-                //    (concrete, _, lookupMatcher) =>
-                //    {
-                //        if (!tagNameResolver.Resolve(concrete, out var tag))
-                //        {
-                //            throw new ArgumentException($"Could not resolve a tag for type '{concrete.FullName}'.");
-                //        }
-                //        var mapper = new ObjectMapper(concrete, tag);
-                //        return new NodeKindMatcher(mapper.MappedNodeKind, mapper);
-                //    }
-                //}
+                        var matcher = NodeMatcher
+                            .ForMappings(MappingMapper.Create(tag, concrete, implementation, keyType, valueType))
+                            .Either(
+                                s => s.MatchEmptyTags(),
+                                s => s.MatchTag(tag)
+                            )
+                            .MatchTypes(concrete)
+                            .Create();
+
+                        return (
+                            matcher,
+                            () =>
+                            {
+                                matcher.AddItemMatcher(
+                                    keyMatcher: lookupMatcher(keyType),
+                                    valueMatchers: lookupMatcher(valueType)
+                                );
+                            }
+                        );
+                    }
+                },
+                {
+                    typeof(object),
+                    (concrete, _, lookupMatcher) =>
+                    {
+                        var tag = tagNameResolver.Resolve(concrete);
+                        var mapper = new ObjectMapper(concrete, tag);
+
+                        var matcher = NodeMatcher
+                            .ForMappings(mapper)
+                            .Either(
+                                s => s.MatchEmptyTags(),
+                                s => s.MatchTag(tag)
+                            )
+                            .MatchTypes(concrete)
+                            .Create();
+
+                        return (
+                            matcher,
+                            () =>
+                            {
+                                // TODO: Type inspector
+                                var properties = concrete.GetPublicProperties();
+                                foreach (var property in properties)
+                                {
+                                    matcher.AddItemMatcher(
+                                        keyMatcher: NodeMatcher
+                                            .ForScalars(StringMapper.Default) // TODO: Naming convention
+                                            .MatchValue(property.Name) // TODO: Naming convention
+                                            .Create(),
+                                        valueMatchers: lookupMatcher(property.PropertyType)
+                                    );
+                                }
+                            }
+                        );
+                    }
+                }
             };
 
-            return new Deserializer(typeMatchers, schema);
+            return new Deserializer(typeMatchers);
         }
     }
 }

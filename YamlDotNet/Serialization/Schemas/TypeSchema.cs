@@ -21,11 +21,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text.RegularExpressions;
 using YamlDotNet.Core;
-using YamlDotNet.Helpers;
 using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
 
@@ -35,7 +32,7 @@ namespace YamlDotNet.Serialization.Schemas
     {
         private readonly NodeMatcher rootMatcher;
 
-        public TypeSchema(Type root, ISchema baseSchema, TypeMatcherTable typeMatchers)
+        public TypeSchema(Type root, TypeMatcherTable typeMatchers)
         {
             rootMatcher = typeMatchers.GetNodeMatcher(root);
             Root = new MultipleNodeMatchersIterator(new[] { rootMatcher });
@@ -176,7 +173,7 @@ namespace YamlDotNet.Serialization.Schemas
                             break;
                     }
                 }
-                mapper = new UnresolvedTagMapper(TagName.Empty);
+                mapper = new UnresolvedValueMapper(value);
                 return NullSchemaIterator.Instance;
             }
 
@@ -220,7 +217,7 @@ namespace YamlDotNet.Serialization.Schemas
                     }
                 }
 
-                mapper = new UnresolvedTagMapper(TagName.Empty);
+                mapper = new UnresolvedValueMapper(value);
                 return NullSchemaIterator.Instance;
             }
 
@@ -243,7 +240,7 @@ namespace YamlDotNet.Serialization.Schemas
 
             public ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
             {
-                mapper = new UnresolvedTagMapper(TagName.Empty);
+                mapper = new UnresolvedValueMapper(value);
                 return this;
             }
 

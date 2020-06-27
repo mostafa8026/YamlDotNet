@@ -37,12 +37,10 @@ namespace YamlDotNet.Serialization
     public sealed class Deserializer : IDeserializer
     {
         private readonly TypeMatcherTable typeMatchers;
-        private readonly ISchema baseSchema;
 
-        internal Deserializer(TypeMatcherTable typeMatchers, ISchema baseSchema)
+        internal Deserializer(TypeMatcherTable typeMatchers)
         {
             this.typeMatchers = typeMatchers ?? throw new ArgumentNullException(nameof(typeMatchers));
-            this.baseSchema = baseSchema ?? throw new ArgumentNullException(nameof(baseSchema));
         }
 
         public T Deserialize<T>(string input)
@@ -104,7 +102,7 @@ namespace YamlDotNet.Serialization
                 throw new ArgumentNullException(nameof(type));
             }
 
-            var schema = new TypeSchema(type, baseSchema, typeMatchers);
+            var schema = new TypeSchema(type, typeMatchers);
 
             var documents = Representation.Stream.Load(parser, _ => schema);
             var document = documents.First();

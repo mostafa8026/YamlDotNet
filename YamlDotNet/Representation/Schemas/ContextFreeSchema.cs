@@ -42,6 +42,11 @@ namespace YamlDotNet.Representation.Schemas
             return root.matchersByTag[tag];
         }
 
+        public NodeMatcher GetNodeMatcherForTag(TagName tag)
+        {
+            return GetNodeMatchersForTag(tag).First();
+        }
+
         private sealed class Iterator : ISchemaIterator
         {
             private readonly IEnumerable<NodeMatcher> nodeMatchers;

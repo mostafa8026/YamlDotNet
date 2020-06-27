@@ -19,23 +19,23 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-using System;
 using YamlDotNet.Core;
 
-namespace YamlDotNet.Serialization.Schemas
+namespace YamlDotNet.Representation.Schemas
 {
-    public interface ITagNameResolver
+    /// <summary>
+    /// Exception that is thrown when attempting to construct or represent from an unresolved tag.
+    /// </summary>
+    public sealed class UnresolvedTagException : YamlException
     {
-        bool Resolve(Type type, out TagName tag);
-    }
-    
-    public static class TagNameResolverExtensions
-    {
-        public static TagName Resolve(this ITagNameResolver tagNameResolver, Type type)
+        public UnresolvedTagException(TagName tag)
+            : base($"The tag '{tag}' was not recognized by the current schema.")
         {
-            return tagNameResolver.Resolve(type, out var tag)
-                ? tag
-                : throw new ArgumentException($"Could not resolve a tag for type '{type.FullName}'.");
+        }
+
+        public UnresolvedTagException(Mark start, Mark end, TagName tag)
+            : base(start, end, $"The tag '{tag}' was not recognized by the current schema.")
+        {
         }
     }
 }

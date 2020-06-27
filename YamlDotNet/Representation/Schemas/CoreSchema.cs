@@ -110,7 +110,10 @@ namespace YamlDotNet.Representation.Schemas
                     )
                 )
                 .MatchPattern("^(null|Null|NULL|~?)$")
-                .MatchEmptyTags()
+                .Either(
+                    s => s.MatchEmptyTags(),
+                    s => s.MatchTag(YamlTagRepository.Null)
+                )
                 .Create();
 
             yield return NodeMatcher
@@ -127,7 +130,10 @@ namespace YamlDotNet.Representation.Schemas
                     )
                 )
                 .MatchPattern("^(true|True|TRUE|false|False|FALSE)$")
-                .MatchEmptyTags()
+                .Either(
+                    s => s.MatchEmptyTags(),
+                    s => s.MatchTag(YamlTagRepository.Boolean)
+                )
                 .MatchTypes(typeof(bool))
                 .Create();
 
@@ -136,7 +142,10 @@ namespace YamlDotNet.Representation.Schemas
                 yield return NodeMatcher
                     .ForScalars(format.Mapper)
                     .MatchPattern(format.Pattern)
-                    .MatchEmptyTags()
+                    .Either(
+                        s => s.MatchEmptyTags(),
+                        s => s.MatchTag(YamlTagRepository.Integer)
+                    )
                     .MatchTypes(
                         typeof(int),
                         typeof(long),
@@ -155,7 +164,10 @@ namespace YamlDotNet.Representation.Schemas
                 yield return NodeMatcher
                     .ForScalars(format.Mapper)
                     .MatchPattern(format.Pattern)
-                    .MatchEmptyTags()
+                    .Either(
+                        s => s.MatchEmptyTags(),
+                        s => s.MatchTag(YamlTagRepository.FloatingPoint)
+                    )
                     .MatchTypes(
                         typeof(float),
                         typeof(double)
@@ -165,18 +177,30 @@ namespace YamlDotNet.Representation.Schemas
 
             yield return NodeMatcher
                 .ForScalars(StringMapper.Default, ScalarStyle.SingleQuoted)
-                .MatchAnyNonSpecificTags()
-                .MatchTypes(typeof(string))
+                .Either(
+                    s => s.MatchAnyNonSpecificTags(),
+                    s => s.MatchTag(YamlTagRepository.String)
+                )
+                .MatchTypes(
+                    typeof(string),
+                    typeof(char) // TODO: Test this
+                )
                 .Create();
 
             yield return NodeMatcher
                 .ForSequences(SequenceMapper<object>.Default)
-                .MatchAnyNonSpecificTags()
+                .Either(
+                    s => s.MatchAnyNonSpecificTags(),
+                    s => s.MatchTag(YamlTagRepository.Sequence)
+                )
                 .Create();
 
             yield return NodeMatcher
                 .ForMappings(MappingMapper<object, object>.Default)
-                .MatchAnyNonSpecificTags()
+                .Either(
+                    s => s.MatchAnyNonSpecificTags(),
+                    s => s.MatchTag(YamlTagRepository.Mapping)
+                )
                 .Create();
         }
     }

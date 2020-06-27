@@ -19,7 +19,6 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
-using System;
 using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation.Schemas
@@ -36,12 +35,12 @@ namespace YamlDotNet.Representation.Schemas
 
         public object? Construct(Node node)
         {
-            throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
+            throw new UnresolvedTagException(node.Start, node.End, Tag);
         }
 
         public Node Represent(object? native, ISchemaIterator iterator)
         {
-            throw new NotSupportedException($"The tag '{Tag}' was not recognized by the current schema.");
+            throw new UnresolvedTagException(Tag);
         }
     }
 }

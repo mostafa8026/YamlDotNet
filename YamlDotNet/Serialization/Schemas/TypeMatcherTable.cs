@@ -53,17 +53,6 @@ namespace YamlDotNet.Serialization.Schemas
             nodeMatchers.Add(nodeMatcher);
         }
 
-        //public void Add(Type type, INodeMapper nodeMapper)
-        //{
-        //    throw new NotImplementedException("TODO");
-        //    //Add(type, new NodeKindMatcher(nodeMapper));
-        //}
-
-        //public void Add(Type type, NodeMatcher nodeMatcher)
-        //{
-        //    nodeMatchersByType.Add(type, nodeMatcher);
-        //}
-
         public void Add(Type type, NodeMatcherFactory nodeMatcherFactory)
         {
             nodeMatcherFactories.Add(type, (s, m, l) => (nodeMatcherFactory(s, m, l), null));
