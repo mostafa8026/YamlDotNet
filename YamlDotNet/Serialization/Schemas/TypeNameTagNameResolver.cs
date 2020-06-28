@@ -29,7 +29,7 @@ namespace YamlDotNet.Serialization.Schemas
 {
     public sealed class TypeNameTagNameResolver : ITagNameResolver
     {
-        public static readonly TypeNameTagNameResolver Instance = new TypeNameTagNameResolver();
+        public static readonly ITagNameResolver Instance = new TypeNameTagNameResolver();
 
         private TypeNameTagNameResolver() { }
 

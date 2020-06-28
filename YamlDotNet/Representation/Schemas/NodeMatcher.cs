@@ -137,6 +137,24 @@ namespace YamlDotNet.Representation.Schemas
 
             return new NodeMatcherBuilderSyntax<IMapping, MappingMatcher>((nodePredicates, valuePredicates) => new MappingMatcher(mapper, suggestedStyle, nodePredicates, valuePredicates));
         }
+
+        public static readonly NodeMatcher NoMatch = new NoneNodeMatcher();
+    }
+
+    internal sealed class NoneNodeMatcher : NodeMatcher
+    {
+        public NoneNodeMatcher()
+            :  base(new UnresolvedValueMapper(null)) 
+        {
+        }
+
+        public override bool Matches(INode node) => false;
+        public override bool Matches(Type type) => false;
+
+        protected override void AddStringRepresentation(StringBuilder output)
+        {
+            output.Append("×");
+        }
     }
 
     internal class NodeMatcherBuilderSyntax<TNode> : INodeMatcherBuilderSyntax<TNode>, INodePredicate<TNode>

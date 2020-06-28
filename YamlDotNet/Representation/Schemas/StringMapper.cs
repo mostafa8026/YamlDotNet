@@ -29,20 +29,26 @@ namespace YamlDotNet.Representation.Schemas
     /// <remarks>
     /// Use <see cref="System.String" /> as native representation.
     /// </remarks>
-    public sealed class StringMapper : NodeMapper<string>
+    public sealed class StringMapper : INodeMapper
     {
         public static readonly StringMapper Default = new StringMapper(YamlTagRepository.String);
 
-        public StringMapper(TagName tag) : base(tag) { }
+        public StringMapper(TagName tag)
+        {
+            Tag = tag;
+        }
 
-        public override string Construct(Node node)
+        public TagName Tag { get; }
+        public INodeMapper Canonical => this;
+
+        public object? Construct(Node node)
         {
             return node.Expect<Scalar>().Value;
         }
 
-        public override Node Represent(string native, ISchemaIterator iterator)
+        public Node Represent(object? native, ISchemaIterator iterator)
         {
-            return new Scalar(this, native);
+            return new Scalar(this, (string)native!);
         }
     }
 }

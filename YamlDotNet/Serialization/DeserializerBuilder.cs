@@ -59,7 +59,8 @@ namespace YamlDotNet.Serialization
         {
             tagMappings = new Dictionary<TagName, Type>
             {
-                //{ YamlTagRepository.Mapping, typeof(Dictionary<object, object>) },
+                { YamlTagRepository.Mapping, typeof(Dictionary<object, object>) },
+                { YamlTagRepository.Sequence, typeof(List<object>) },
                 //{ YamlTagRepository.String, typeof(string) },
                 //{ YamlTagRepository.Boolean, typeof(bool) },
                 //{ YamlTagRepository.FloatingPoint, typeof(double) },
@@ -418,6 +419,11 @@ namespace YamlDotNet.Serialization
                     typeof(object),
                     (concrete, _, lookupMatcher) =>
                     {
+                        if (concrete == typeof(object))
+                        {
+                            return (NodeMatcher.NoMatch, null);
+                        }
+
                         var tag = tagNameResolver.Resolve(concrete);
                         var mapper = new ObjectMapper(concrete, tag);
 
@@ -452,7 +458,11 @@ namespace YamlDotNet.Serialization
                 }
             };
 
-            return new Deserializer(typeMatchers);
+            //return new Deserializer(root => new TypeSchema(typeMatchers, root, tagMappings.Values));
+            return new Deserializer(root => new CompositeSchema(
+                new TypeSchema(typeMatchers, root, tagMappings.Values),
+                CoreSchema.Instance
+            ));
         }
     }
 }

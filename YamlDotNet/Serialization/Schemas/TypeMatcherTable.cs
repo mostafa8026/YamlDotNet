@@ -84,14 +84,6 @@ namespace YamlDotNet.Serialization.Schemas
         {
             foreach (var candidate in GetSuperTypes(type))
             {
-                if (candidate != type) // A type cannot be resolved by itself
-                {
-                    if (nodeMatchersByType.TryGetValue(candidate, out var nodeMatcher))
-                    {
-                        return (nodeMatcher, null);
-                    }
-                }
-
                 foreach (var nodeMatcher in nodeMatchers)
                 {
                     if (nodeMatcher.Matches(candidate))

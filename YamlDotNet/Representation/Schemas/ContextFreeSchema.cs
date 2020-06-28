@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using YamlDotNet.Core;
 
@@ -82,34 +83,31 @@ namespace YamlDotNet.Representation.Schemas
                 }
             }
 
-            public ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
+            public bool TryEnterNode(INode node, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
-                if (node.Tag.IsNonSpecific)
+                childIterator = this;
+                foreach (var matcher in nodeMatchers)
                 {
-                    foreach (var matcher in nodeMatchers)
+                    if (matcher.Matches(node))
                     {
-                        if (matcher.Matches(node))
-                        {
-                            mapper = matcher.Mapper.Canonical;
-                            return this;
-                        }
+                        mapper = matcher.Mapper.Canonical;
+                        return true;
                     }
                 }
 
-                if (!knownTags.TryGetValue(node.Tag, out mapper!))
-                {
-                    mapper = new UnresolvedTagMapper(node.Tag);
-                }
-
-                return this;
+                return knownTags.TryGetValue(node.Tag, out mapper);
             }
 
-            public ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
+            public bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
                 throw new NotImplementedException("TODO");
             }
 
-            public ISchemaIterator EnterMappingValue() => this;
+            public bool TryEnterMappingValue([NotNullWhen(true)] out ISchemaIterator? childIterator)
+            {
+                childIterator = this;
+                return true;
+            }
 
             //public bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper)
             //{

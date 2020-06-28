@@ -24,25 +24,6 @@ using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation.Schemas
 {
-    public abstract class NodeMapper<T> : INodeMapper
-    {
-        public TagName Tag { get; }
-        public virtual INodeMapper Canonical => this;
-
-        protected NodeMapper(TagName tag)
-        {
-            Tag = tag;
-        }
-
-        public abstract T Construct(Node node);
-        public abstract Node Represent(T native, ISchemaIterator iterator);
-
-        object? INodeMapper.Construct(Node node) => Construct(node);
-        Node INodeMapper.Represent(object? native, ISchemaIterator iterator) => Represent((T)native!, iterator);
-
-        public override string ToString() => Tag.ToString();
-    }
-
     public static class NodeMapper
     {
         private sealed class LambdaNodeMapper : INodeMapper

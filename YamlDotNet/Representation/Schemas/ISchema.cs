@@ -19,6 +19,7 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
+using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation.Schemas
@@ -30,12 +31,89 @@ namespace YamlDotNet.Representation.Schemas
 
     public interface ISchemaIterator
     {
-        ISchemaIterator EnterNode(INode node, out INodeMapper? mapper);
-        ISchemaIterator EnterValue(object? value, out INodeMapper? mapper);
-        ISchemaIterator EnterMappingValue();
+        bool TryEnterNode(INode node, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper);
+        bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper);
+        bool TryEnterMappingValue([NotNullWhen(true)] out ISchemaIterator? childIterator);
 
         bool IsTagImplicit(IScalar scalar, out ScalarStyle style);
         bool IsTagImplicit(ISequence sequence, out SequenceStyle style);
         bool IsTagImplicit(IMapping mapping, out MappingStyle style);
+    }
+
+    public static class SchemaIteratorExtensions
+    {
+        public static ISchemaIterator EnterNode(this ISchemaIterator iterator, INode node, out INodeMapper mapper)
+        {
+            if (iterator.TryEnterNode(node, out var childIterator, out mapper!))
+            {
+                return childIterator;
+            }
+
+            mapper = new UnresolvedTagMapper(node.Tag);
+            return NullSchemaIterator.Instance;
+        }
+
+        public static ISchemaIterator EnterValue(this ISchemaIterator iterator, object? value, out INodeMapper mapper)
+        {
+            if (iterator.TryEnterValue(value, out var childIterator, out mapper!))
+            {
+                return childIterator;
+            }
+
+            mapper = new UnresolvedValueMapper(value);
+            return NullSchemaIterator.Instance;
+        }
+
+        public static ISchemaIterator EnterMappingValue(this ISchemaIterator iterator)
+        {
+            return iterator.TryEnterMappingValue(out var childIterator)
+                ? childIterator
+                : NullSchemaIterator.Instance;
+        }
+
+        private sealed class NullSchemaIterator : ISchemaIterator
+        {
+            private NullSchemaIterator() { }
+
+            public static readonly ISchemaIterator Instance = new NullSchemaIterator();
+
+            public bool TryEnterNode(INode node, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
+            {
+                childIterator = null;
+                mapper = null;
+                return false;
+            }
+
+            public bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
+            {
+                childIterator = null;
+                mapper = null;
+                return false;
+            }
+
+            public bool TryEnterMappingValue([NotNullWhen(true)] out ISchemaIterator? childIterator)
+            {
+                childIterator = null;
+                return false;
+            }
+
+            public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
+            {
+                style = default;
+                return false;
+            }
+
+            public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
+            {
+                style = default;
+                return false;
+            }
+
+            public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
+            {
+                style = default;
+                return false;
+            }
+        }
     }
 }

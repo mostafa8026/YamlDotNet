@@ -21,7 +21,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using YamlDotNet.Core;
 using YamlDotNet.Helpers;
@@ -37,17 +36,21 @@ namespace YamlDotNet.Representation.Schemas
     /// <remarks>
     /// Uses <typeparamref name="TSequence"/> as native representation.
     /// </remarks>
-    public sealed class SequenceMapper<TSequence, TElement> : NodeMapper<TSequence>
+    public sealed class SequenceMapper<TSequence, TElement> : INodeMapper
         where TSequence : ICollection<TElement>
     {
         private readonly CollectionFactory<TSequence> factory;
 
-        public SequenceMapper(TagName tag, CollectionFactory<TSequence> factory) : base(tag)
+        public SequenceMapper(TagName tag, CollectionFactory<TSequence> factory)
         {
+            Tag = tag;
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
         }
 
-        public override TSequence Construct(Node node)
+        public TagName Tag { get; }
+        public INodeMapper Canonical => this;
+
+        public object? Construct(Node node)
         {
             var sequence = node.Expect<Sequence>();
             var collection = factory(sequence.Count);
@@ -75,7 +78,7 @@ namespace YamlDotNet.Representation.Schemas
             return collection;
         }
 
-        public override Node Represent(TSequence native, ISchemaIterator iterator)
+        public Node Represent(object? native, ISchemaIterator iterator)
         {
             var children = new List<Node>();
 
@@ -83,7 +86,7 @@ namespace YamlDotNet.Representation.Schemas
             // We need to create it now in order to update the current path.
             var sequence = new Sequence(this, children.AsReadonlyList());
 
-            foreach (var item in native)
+            foreach (var item in (ICollection<TElement>)native!)
             {
                 var itemIterator = iterator.EnterValue(item, out var itemMapper);
                 var childNode = itemMapper.Represent(item, itemIterator);

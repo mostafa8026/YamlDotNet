@@ -21,7 +21,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using YamlDotNet.Core;
 using YamlDotNet.Helpers;
@@ -38,18 +37,22 @@ namespace YamlDotNet.Representation.Schemas
     /// <remarks>
     /// Uses <typeparamref name="TMapping"/> as native representation.
     /// </remarks>
-    public sealed class MappingMapper<TMapping, TKey, TValue> : NodeMapper<TMapping>
+    public sealed class MappingMapper<TMapping, TKey, TValue> : INodeMapper
         where TMapping : IDictionary<TKey, TValue>
         where TKey : notnull
     {
         private readonly CollectionFactory<TMapping> factory;
 
-        public MappingMapper(TagName tag, CollectionFactory<TMapping> factory) : base(tag)
+        public MappingMapper(TagName tag, CollectionFactory<TMapping> factory)
         {
+            Tag = tag;
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
         }
 
-        public override TMapping Construct(Node node)
+        public TagName Tag { get; }
+        public INodeMapper Canonical => this;
+
+        public object? Construct(Node node)
         {
             var mapping = node.Expect<Mapping>();
             var dictionary = factory(mapping.Count);
@@ -66,7 +69,7 @@ namespace YamlDotNet.Representation.Schemas
             return dictionary;
         }
 
-        public override Node Represent(TMapping native, ISchemaIterator iterator)
+        public Node Represent(object? native, ISchemaIterator iterator)
         {
             var children = new Dictionary<Node, Node>();
 
@@ -74,7 +77,7 @@ namespace YamlDotNet.Representation.Schemas
             // We need to create it now in order to update the current path.
             var mapping = new Mapping(this, children.AsReadonlyDictionary());
 
-            foreach (var (key, value) in native)
+            foreach (var (key, value) in (IDictionary<TKey, TValue>)native!)
             {
                 var keyIterator = iterator.EnterValue(key, out var keyMapper);
                 var keyNode = keyMapper.Represent(key, keyIterator);

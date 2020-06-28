@@ -20,9 +20,7 @@
 //  SOFTWARE.
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation.Schemas
@@ -51,19 +49,55 @@ namespace YamlDotNet.Representation.Schemas
                 this.secondary = secondary ?? throw new ArgumentNullException(nameof(secondary));
             }
 
-            public ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
+            public bool TryEnterNode(INode node, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
-                throw new NotImplementedException();
+                if (primary.TryEnterNode(node, out childIterator, out mapper))
+                {
+                    if (secondary.TryEnterNode(node, out var secondaryChildIterator, out _))
+                    {
+                        childIterator = new CompositeIterator(childIterator, secondaryChildIterator);
+                        return true;
+                    }
+                    return true;
+                }
+                else
+                {
+                    return secondary.TryEnterNode(node, out childIterator, out mapper);
+                }
             }
 
-            public ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
+            public bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
-                throw new NotImplementedException();
+                if (primary.TryEnterValue(value, out childIterator, out mapper))
+                {
+                    if (secondary.TryEnterValue(value, out var secondaryChildIterator, out _))
+                    {
+                        childIterator = new CompositeIterator(childIterator, secondaryChildIterator);
+                        return true;
+                    }
+                    return true;
+                }
+                else
+                {
+                    return secondary.TryEnterValue(value, out childIterator, out mapper);
+                }
             }
 
-            public ISchemaIterator EnterMappingValue()
+            public bool TryEnterMappingValue([NotNullWhen(true)] out ISchemaIterator? childIterator)
             {
-                throw new NotImplementedException();
+                if (primary.TryEnterMappingValue(out childIterator))
+                {
+                    if (secondary.TryEnterMappingValue(out var secondaryChildIterator))
+                    {
+                        childIterator = new CompositeIterator(childIterator, secondaryChildIterator);
+                        return true;
+                    }
+                    return true;
+                }
+                else
+                {
+                    return secondary.TryEnterMappingValue(out childIterator);
+                }
             }
 
             public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)

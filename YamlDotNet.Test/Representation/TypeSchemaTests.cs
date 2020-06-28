@@ -25,6 +25,7 @@ using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using YamlDotNet.Core;
+using YamlDotNet.Helpers;
 using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
 using YamlDotNet.Serialization.Schemas;
@@ -41,9 +42,60 @@ namespace YamlDotNet.Test.Representation
         }
 
         [Fact]
+        public void ExplicitTag()
+        {
+            var matcherTable = BuildTypeMatcherTable(new Dictionary<TagName, Type>
+            {
+                { "!Dictionary", typeof(Dictionary<string, int>) }
+            });
+
+            var sut = new TypeSchema(matcherTable, typeof(SimpleModel), typeof(Dictionary<string, int>));
+
+            var stream = Stream.Load(Yaml.ParserForText(@"
+                !Dictionary {
+                    key1: 1,
+                    key2: 2
+                }
+            "), _ => sut);
+
+            var content = stream.First().Content;
+
+            var yaml = Stream.Dump(new[] { new Document(content, new ContextFreeSchema(Enumerable.Empty<NodeMatcher>())) });
+            output.WriteLine("=== Dumped YAML ===");
+            output.WriteLine(yaml);
+
+            var value = content.Mapper.Construct(content);
+        }
+
+        [Fact]
+        public void ExplicitChildTag()
+        {
+            var matcherTable = BuildTypeMatcherTable(new Dictionary<TagName, Type>
+            {
+                { "!List", typeof(List<IDictionary<string, int>>) },
+                { "!Dictionary", typeof(Dictionary<string, int>) },
+            });
+
+            var sut = new TypeSchema(matcherTable, typeof(List<IDictionary<string, int>>), typeof(Dictionary<string, int>));
+
+            var stream = Stream.Load(Yaml.ParserForText(@"
+                !List
+                - !Dictionary { key1: 1, key2: 2 }
+            "), _ => sut);
+
+            var content = stream.First().Content;
+
+            var yaml = Stream.Dump(new[] { new Document(content, new ContextFreeSchema(Enumerable.Empty<NodeMatcher>())) });
+            output.WriteLine("=== Dumped YAML ===");
+            output.WriteLine(yaml);
+
+            var value = content.Mapper.Construct(content);
+        }
+
+        [Fact]
         public void X()
         {
-            var sut = new TypeSchema(typeof(SimpleModel), BuildTypeMatcherTable());
+            var sut = new TypeSchema(BuildTypeMatcherTable(), typeof(SimpleModel));
             output.WriteLine(sut.ToString());
 
             var stream = Stream.Load(Yaml.ParserForText(@"
@@ -98,7 +150,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void SequenceMapperTest()
         {
-            var sut = new TypeSchema(typeof(IList<int>), BuildTypeMatcherTable());
+            var sut = new TypeSchema(BuildTypeMatcherTable(), typeof(IList<int>));
             output.WriteLine(sut.ToString());
 
             var doc = sut.Represent(new[] { 1, 2 });
@@ -111,7 +163,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void SequenceMapperTest2()
         {
-            var sut = new TypeSchema(typeof(IList<IList<int>>), BuildTypeMatcherTable());
+            var sut = new TypeSchema(BuildTypeMatcherTable(), typeof(IList<IList<int>>));
             output.WriteLine(sut.ToString());
 
             //var stream = Stream.Load(Yaml.ParserForText(@"
@@ -138,7 +190,7 @@ namespace YamlDotNet.Test.Representation
         [Fact]
         public void MappingMapperTest()
         {
-            var sut = new TypeSchema(typeof(IDictionary<int, string>), BuildTypeMatcherTable());
+            var sut = new TypeSchema(BuildTypeMatcherTable(), typeof(IDictionary<int, string>));
             output.WriteLine(sut.ToString());
 
             var doc = sut.Represent(new Dictionary<int, string> { { 1, "one" }, { 2, "two" } });
@@ -153,7 +205,7 @@ namespace YamlDotNet.Test.Representation
         {
             var model = new { one = 1, two = "abc" };
 
-            var sut = new TypeSchema(model.GetType(), BuildTypeMatcherTable());
+            var sut = new TypeSchema(BuildTypeMatcherTable(), model.GetType());
             output.WriteLine(sut.ToString());
 
             var doc = sut.Represent(model);
@@ -163,12 +215,16 @@ namespace YamlDotNet.Test.Representation
             output.WriteLine(yaml);
         }
 
-        private static TypeMatcherTable BuildTypeMatcherTable()
+        private static TypeMatcherTable BuildTypeMatcherTable(Dictionary<TagName, Type>? tagMappings = null)
         {
-            var tagNameResolver = new CompositeTagNameResolver(
-                //new TableTagNameResolver(tagMappings.ToDictionary(p => p.Value, p => p.Key).AsReadonlyDictionary()),
-                TypeNameTagNameResolver.Instance
-            );
+            var tagNameResolver = TypeNameTagNameResolver.Instance;
+            if (tagMappings != null)
+            {
+                tagNameResolver = new CompositeTagNameResolver(
+                    new TableTagNameResolver(tagMappings.ToDictionary(p => p.Value, p => p.Key).AsReadonlyDictionary()),
+                    tagNameResolver
+                );
+            }
 
             var schema = CoreSchema.Instance;
 

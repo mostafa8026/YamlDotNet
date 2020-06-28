@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using YamlDotNet.Core;
 using YamlDotNet.Representation;
@@ -30,12 +31,25 @@ namespace YamlDotNet.Serialization.Schemas
 {
     public sealed class TypeSchema : ISchema
     {
-        private readonly NodeMatcher rootMatcher;
-
-        public TypeSchema(Type root, TypeMatcherTable typeMatchers)
+        public TypeSchema(TypeMatcherTable typeMatchers, Type root, params Type[] wellKnownTypes)
+            : this(typeMatchers, root, (IEnumerable<Type>)wellKnownTypes)
         {
-            rootMatcher = typeMatchers.GetNodeMatcher(root);
-            Root = new MultipleNodeMatchersIterator(new[] { rootMatcher });
+        }
+
+        public TypeSchema(TypeMatcherTable typeMatchers, Type root, IEnumerable<Type> wellKnownTypes)
+        {
+            var rootMatchers = new List<NodeMatcher>();
+            if (root != typeof(object))
+            {
+                rootMatchers.Add(typeMatchers.GetNodeMatcher(root));
+            }
+
+            foreach (var wellKnownType in wellKnownTypes)
+            {
+                rootMatchers.Add(typeMatchers.GetNodeMatcher(wellKnownType));
+            }
+
+            Root = new RootNodeMatchersIterator(rootMatchers);
         }
 
         public override string ToString() => Root.ToString()!;
@@ -50,61 +64,25 @@ namespace YamlDotNet.Serialization.Schemas
             return new Document(content, this);
         }
 
-        private abstract class NodeMatcherIterator : ISchemaIterator
+        private sealed class SingleNodeMatcherIterator : ISchemaIterator
         {
+            private readonly NodeMatcher matcher;
+            private readonly ISchemaIterator root;
             private readonly IEnumerable<NodeMatcher>? valueMatchers;
 
-            public NodeMatcherIterator()
+            public SingleNodeMatcherIterator(NodeMatcher matcher, ISchemaIterator root)
             {
+                this.matcher = matcher ?? throw new ArgumentNullException(nameof(matcher));
+                this.root = root ?? throw new ArgumentNullException(nameof(root));
             }
 
-            public NodeMatcherIterator(IEnumerable<NodeMatcher> valueMatchers)
+            public SingleNodeMatcherIterator(NodeMatcher matcher, ISchemaIterator root, IEnumerable<NodeMatcher> valueMatchers)
+                : this(matcher, root)
             {
                 this.valueMatchers = valueMatchers ?? throw new ArgumentNullException(nameof(valueMatchers));
             }
 
-            public abstract ISchemaIterator EnterNode(INode node, out INodeMapper? mapper);
-            public abstract ISchemaIterator EnterValue(object? value, out INodeMapper? mapper);
-
-            public ISchemaIterator EnterMappingValue()
-            {
-                return valueMatchers != null
-                    ? new MultipleNodeMatchersIterator(valueMatchers)
-                    : NullSchemaIterator.Instance;
-            }
-
-            public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        private sealed class SingleNodeMatcherIterator : NodeMatcherIterator
-        {
-            private readonly NodeMatcher matcher;
-
-            public SingleNodeMatcherIterator(NodeMatcher matcher)
-            {
-                this.matcher = matcher ?? throw new ArgumentNullException(nameof(matcher));
-            }
-
-            public SingleNodeMatcherIterator(NodeMatcher matcher, IEnumerable<NodeMatcher> valueMatchers)
-                : base(valueMatchers)
-            {
-                this.matcher = matcher ?? throw new ArgumentNullException(nameof(matcher));
-            }
-
-            public override ISchemaIterator EnterNode(INode node, out INodeMapper? mapper)
+            public bool TryEnterNode(INode node, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
                 switch (matcher)
                 {
@@ -114,7 +92,8 @@ namespace YamlDotNet.Serialization.Schemas
                             if (itemMatcher.Matches(node))
                             {
                                 mapper = itemMatcher.Mapper;
-                                return new SingleNodeMatcherIterator(itemMatcher);
+                                childIterator = new SingleNodeMatcherIterator(itemMatcher, root);
+                                return true;
                             }
                         }
                         break;
@@ -125,7 +104,8 @@ namespace YamlDotNet.Serialization.Schemas
                             if (keyMatcher.Matches(node))
                             {
                                 mapper = keyMatcher.Mapper;
-                                return new SingleNodeMatcherIterator(keyMatcher, valueMatchers);
+                                childIterator = new SingleNodeMatcherIterator(keyMatcher, root, valueMatchers);
+                                return true;
                             }
                         }
                         break;
@@ -135,11 +115,10 @@ namespace YamlDotNet.Serialization.Schemas
                         break;
                 }
 
-                mapper = null;
-                return NullSchemaIterator.Instance;
+                return root.TryEnterNode(node, out childIterator, out mapper);
             }
 
-            public override ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
+            public bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
                 if (value != null)
                 {
@@ -152,7 +131,8 @@ namespace YamlDotNet.Serialization.Schemas
                                 if (itemMatcher.Matches(typeOfValue))
                                 {
                                     mapper = itemMatcher.Mapper;
-                                    return new SingleNodeMatcherIterator(itemMatcher);
+                                    childIterator = new SingleNodeMatcherIterator(itemMatcher, root);
+                                    return true;
                                 }
                             }
                             break;
@@ -163,7 +143,8 @@ namespace YamlDotNet.Serialization.Schemas
                                 if (keyMatcher.Matches(typeOfValue))
                                 {
                                     mapper = keyMatcher.Mapper;
-                                    return new SingleNodeMatcherIterator(keyMatcher, valueMatchers);
+                                    childIterator = new SingleNodeMatcherIterator(keyMatcher, root, valueMatchers);
+                                    return true;
                                 }
                             }
                             break;
@@ -173,38 +154,70 @@ namespace YamlDotNet.Serialization.Schemas
                             break;
                     }
                 }
-                mapper = new UnresolvedValueMapper(value);
-                return NullSchemaIterator.Instance;
+
+                return root.TryEnterValue(value, out childIterator, out mapper);
+            }
+
+            public bool TryEnterMappingValue([NotNullWhen(true)] out ISchemaIterator? childIterator)
+            {
+                if (valueMatchers != null)
+                {
+                    childIterator = new MultipleNodeMatchersIterator(valueMatchers, root);
+                    return true;
+                }
+                else
+                {
+                    // There's no need to fall back to the root because it will never recognize mapping values
+                    childIterator = null;
+                    return false;
+                }
+            }
+
+            public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
+            {
+                throw new NotImplementedException("TODO");
+            }
+
+            public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
+            {
+                throw new NotImplementedException("TODO");
+            }
+
+            public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
+            {
+                throw new NotImplementedException("TODO");
             }
 
             public override string ToString() => matcher.ToString();
         }
 
-        private sealed class MultipleNodeMatchersIterator : NodeMatcherIterator
+        private sealed class MultipleNodeMatchersIterator : ISchemaIterator
         {
             private readonly IEnumerable<NodeMatcher> nodeMatchers;
+            private readonly ISchemaIterator root;
 
-            public MultipleNodeMatchersIterator(IEnumerable<NodeMatcher> nodeMatchers)
+            public MultipleNodeMatchersIterator(IEnumerable<NodeMatcher> nodeMatchers, ISchemaIterator root)
             {
                 this.nodeMatchers = nodeMatchers ?? throw new ArgumentNullException(nameof(nodeMatchers));
+                this.root = root ?? throw new ArgumentNullException(nameof(root));
             }
 
-            public override ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
+            public bool TryEnterNode(INode node, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
                 var matcher = nodeMatchers.FirstOrDefault(m => m.Matches(node));
                 if (matcher != null)
                 {
                     mapper = matcher.Mapper;
-                    return new SingleNodeMatcherIterator(matcher);
+                    childIterator = new SingleNodeMatcherIterator(matcher, root);
+                    return true;
                 }
                 else
                 {
-                    mapper = new UnresolvedTagMapper(node.Tag);
-                    return NullSchemaIterator.Instance;
+                    return root.TryEnterNode(node, out childIterator, out mapper);
                 }
             }
 
-            public override ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
+            public bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
                 if (value != null)
                 {
@@ -213,56 +226,106 @@ namespace YamlDotNet.Serialization.Schemas
                     if (matcher != null)
                     {
                         mapper = matcher.Mapper;
-                        return new SingleNodeMatcherIterator(matcher);
+                        childIterator = new SingleNodeMatcherIterator(matcher, root);
+                        return true;
                     }
                 }
 
-                mapper = new UnresolvedValueMapper(value);
-                return NullSchemaIterator.Instance;
+                return root.TryEnterValue(value, out childIterator, out mapper);
+            }
+
+            public bool TryEnterMappingValue([NotNullWhen(true)] out ISchemaIterator? childIterator)
+            {
+                // There's no need to fall back to the root because it will never recognize mapping values
+                childIterator = null;
+                return false;
+            }
+
+            public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
+            {
+                throw new NotImplementedException("TODO");
+            }
+
+            public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
+            {
+                throw new NotImplementedException("TODO");
+            }
+
+            public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
+            {
+                throw new NotImplementedException("TODO");
             }
 
             public override string ToString() => string.Join(", ", nodeMatchers.Select(m => m.ToString()).ToArray());
         }
 
-        private sealed class NullSchemaIterator : ISchemaIterator
+        private sealed class RootNodeMatchersIterator : ISchemaIterator
         {
-            private NullSchemaIterator() { }
+            private readonly IEnumerable<NodeMatcher> nodeMatchers;
 
-            public static readonly ISchemaIterator Instance = new NullSchemaIterator();
-
-            public IEnumerable<NodeMatcher> NodeMatchers => Enumerable.Empty<NodeMatcher>();
-
-            public ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
+            public RootNodeMatchersIterator(IEnumerable<NodeMatcher> nodeMatchers)
             {
-                mapper = new UnresolvedTagMapper(node.Tag);
-                return this;
+                this.nodeMatchers = nodeMatchers ?? throw new ArgumentNullException(nameof(nodeMatchers));
             }
 
-            public ISchemaIterator EnterValue(object? value, out INodeMapper mapper)
+            public bool TryEnterNode(INode node, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
-                mapper = new UnresolvedValueMapper(value);
-                return this;
+                var matcher = nodeMatchers.FirstOrDefault(m => m.Matches(node));
+                if (matcher != null)
+                {
+                    mapper = matcher.Mapper;
+                    childIterator = new SingleNodeMatcherIterator(matcher, this);
+                    return true;
+                }
+                else
+                {
+                    mapper = null;
+                    childIterator = null;
+                    return false;
+                }
             }
 
-            public ISchemaIterator EnterMappingValue() => this;
+            public bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
+            {
+                if (value != null)
+                {
+                    var typeOfValue = value.GetType();
+                    var matcher = nodeMatchers.FirstOrDefault(m => m.Matches(typeOfValue));
+                    if (matcher != null)
+                    {
+                        mapper = matcher.Mapper;
+                        childIterator = new SingleNodeMatcherIterator(matcher, this);
+                        return true;
+                    }
+                }
+
+                mapper = null;
+                childIterator = null;
+                return false;
+            }
+
+            public bool TryEnterMappingValue([NotNullWhen(true)] out ISchemaIterator? childIterator)
+            {
+                childIterator = null;
+                return false;
+            }
 
             public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
             {
-                style = default;
-                return false;
+                throw new NotImplementedException("TODO");
             }
 
             public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
             {
-                style = default;
-                return false;
+                throw new NotImplementedException("TODO");
             }
 
             public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
             {
-                style = default;
-                return false;
+                throw new NotImplementedException("TODO");
             }
+
+            public override string ToString() => string.Join(", ", nodeMatchers.Select(m => m.ToString()).ToArray());
         }
     }
 }
