@@ -248,19 +248,6 @@ namespace YamlDotNet.Test.Serialization
         }
 
         [Fact]
-        public void DeserializationOfObjectsHandlesForwardReferences()
-        {
-            var text = Lines(
-                "Nothing: *forward",
-                "MyString: &forward ForwardReference");
-
-            var result = Deserializer.Deserialize<Example>(UsingReaderFor(text));
-
-            result.ShouldBeEquivalentTo(
-                new { Nothing = "ForwardReference", MyString = "ForwardReference" }, o => o.ExcludingMissingMembers());
-        }
-
-        [Fact]
         public void DeserializationFailsForUndefinedForwardReferences()
         {
             var text = Lines(
@@ -523,30 +510,6 @@ namespace YamlDotNet.Test.Serialization
 
             result.Should().BeAssignableTo<IList<int>>().And
                 .Subject.As<IList<int>>().Should().Equal(3, 4, 5);
-        }
-
-        [Fact]
-        public void DeserializationOfGenericListsHandlesForwardReferences()
-        {
-            var text = Lines(
-                "- *forward",
-                "- &forward ForwardReference");
-
-            var result = Deserializer.Deserialize<string[]>(UsingReaderFor(text));
-
-            result.Should().Equal(new[] { "ForwardReference", "ForwardReference" });
-        }
-
-        [Fact]
-        public void DeserializationOfNonGenericListsHandlesForwardReferences()
-        {
-            var text = Lines(
-                "- *forward",
-                "- &forward ForwardReference");
-
-            var result = Deserializer.Deserialize<ArrayList>(UsingReaderFor(text));
-
-            result.Should().Equal(new[] { "ForwardReference", "ForwardReference" });
         }
 
         [Fact]

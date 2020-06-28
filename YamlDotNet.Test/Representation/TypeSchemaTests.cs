@@ -196,7 +196,7 @@ namespace YamlDotNet.Test.Representation
                         }
 
                         var matcher = NodeMatcher
-                            .ForSequences(SequenceMapper.Create(tag, concrete, implementation, itemType))
+                            .ForSequences(SequenceMapper.Create(tag, implementation, itemType))
                             .Either(
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)
@@ -230,7 +230,7 @@ namespace YamlDotNet.Test.Representation
                         }
 
                         var matcher = NodeMatcher
-                            .ForMappings(MappingMapper.Create(tag, concrete, implementation, keyType, valueType))
+                            .ForMappings(MappingMapper.Create(tag, implementation, keyType, valueType))
                             .Either(
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)

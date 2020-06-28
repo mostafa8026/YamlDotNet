@@ -29,12 +29,11 @@ namespace YamlDotNet.Representation.Schemas
 
     internal static class CollectionFactoryHelper
     {
-        public static CollectionFactory<TCollection> CreateFactory<TCollection, TConcreteCollection>()
-            where TConcreteCollection : TCollection
+        public static CollectionFactory<TCollection> CreateFactory<TCollection>()
         {
             CollectionFactory<TCollection> factory;
 
-            var constructors = typeof(TConcreteCollection).GetConstructors();
+            var constructors = typeof(TCollection).GetConstructors();
             var intConstructor = constructors.FirstOrDefault(c =>
             {
                 var parameters = c.GetParameters();

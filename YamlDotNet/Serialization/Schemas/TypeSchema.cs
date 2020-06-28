@@ -63,8 +63,8 @@ namespace YamlDotNet.Serialization.Schemas
                 this.valueMatchers = valueMatchers ?? throw new ArgumentNullException(nameof(valueMatchers));
             }
 
-            public abstract ISchemaIterator EnterNode(INode node, out INodeMapper mapper);
-            public abstract ISchemaIterator EnterValue(object? value, out INodeMapper mapper);
+            public abstract ISchemaIterator EnterNode(INode node, out INodeMapper? mapper);
+            public abstract ISchemaIterator EnterValue(object? value, out INodeMapper? mapper);
 
             public ISchemaIterator EnterMappingValue()
             {
@@ -104,7 +104,7 @@ namespace YamlDotNet.Serialization.Schemas
                 this.matcher = matcher ?? throw new ArgumentNullException(nameof(matcher));
             }
 
-            public override ISchemaIterator EnterNode(INode node, out INodeMapper mapper)
+            public override ISchemaIterator EnterNode(INode node, out INodeMapper? mapper)
             {
                 switch (matcher)
                 {
@@ -135,7 +135,7 @@ namespace YamlDotNet.Serialization.Schemas
                         break;
                 }
 
-                mapper = new UnresolvedTagMapper(node.Tag);
+                mapper = null;
                 return NullSchemaIterator.Instance;
             }
 

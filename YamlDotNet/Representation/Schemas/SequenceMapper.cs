@@ -112,24 +112,23 @@ namespace YamlDotNet.Representation.Schemas
 
         public static INodeMapper Create(Type sequenceType, Type itemType)
         {
-            return Create(YamlTagRepository.Sequence, sequenceType, sequenceType, itemType);
+            return Create(YamlTagRepository.Sequence, sequenceType, itemType);
         }
 
-        public static INodeMapper Create(TagName tag, Type sequenceType, Type sequenceConcreteType, Type itemType)
+        public static INodeMapper Create(TagName tag, Type sequenceConcreteType, Type itemType)
         {
             return (INodeMapper)createHelperGenericMethod
-                .MakeGenericMethod(sequenceType, sequenceConcreteType, itemType)
+                .MakeGenericMethod(sequenceConcreteType, itemType)
                 .Invoke(null, new object[] { tag })!;
         }
 
         private static readonly MethodInfo createHelperGenericMethod = typeof(SequenceMapper).GetPrivateStaticMethod(nameof(CreateHelper))
             ?? throw new MissingMethodException($"Expected to find a method named '{nameof(CreateHelper)}' in class '{typeof(SequenceMapper).FullName}'.");
 
-        private static INodeMapper CreateHelper<TSequence, TConcreteSequence, TItem>(TagName tag)
+        private static INodeMapper CreateHelper<TSequence, TItem>(TagName tag)
             where TSequence : ICollection<TItem>
-            where TConcreteSequence : TSequence
         {
-            var factory = CollectionFactoryHelper.CreateFactory<TSequence, TConcreteSequence>();
+            var factory = CollectionFactoryHelper.CreateFactory<TSequence>();
             return new SequenceMapper<TSequence, TItem>(tag, factory);
         }
     }

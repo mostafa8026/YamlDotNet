@@ -105,25 +105,24 @@ namespace YamlDotNet.Representation.Schemas
 
         public static INodeMapper Create(Type mappingType, Type keyType, Type valueType)
         {
-            return Create(YamlTagRepository.Mapping, mappingType, mappingType, keyType, valueType);
+            return Create(YamlTagRepository.Mapping, mappingType, keyType, valueType);
         }
 
-        public static INodeMapper Create(TagName tag, Type mappingType, Type mappingConcreteType, Type keyType, Type valueType)
+        public static INodeMapper Create(TagName tag, Type mappingType, Type keyType, Type valueType)
         {
             return (INodeMapper)createHelperGenericMethod
-                .MakeGenericMethod(mappingType, mappingConcreteType, keyType, valueType)
+                .MakeGenericMethod(mappingType, keyType, valueType)
                 .Invoke(null, new object[] { tag })!;
         }
 
         private static readonly MethodInfo createHelperGenericMethod = typeof(MappingMapper).GetPrivateStaticMethod(nameof(CreateHelper))
             ?? throw new MissingMethodException($"Expected to find a method named '{nameof(CreateHelper)}' in class '{typeof(MappingMapper).FullName}'.");
 
-        private static INodeMapper CreateHelper<TMapping, TConcreteMapping, TKey, TValue>(TagName tag)
+        private static INodeMapper CreateHelper<TMapping, TKey, TValue>(TagName tag)
             where TMapping : IDictionary<TKey, TValue>
-            where TConcreteMapping : TMapping
             where TKey : notnull
         {
-            var factory = CollectionFactoryHelper.CreateFactory<TMapping, TConcreteMapping>();
+            var factory = CollectionFactoryHelper.CreateFactory<TMapping>();
             return new MappingMapper<TMapping, TKey, TValue>(tag, factory);
         }
     }

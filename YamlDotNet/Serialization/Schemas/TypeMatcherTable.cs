@@ -53,6 +53,11 @@ namespace YamlDotNet.Serialization.Schemas
             nodeMatchers.Add(nodeMatcher);
         }
 
+        public void Add(IEnumerable<NodeMatcher> nodeMatchers)
+        {
+            this.nodeMatchers.AddRange(nodeMatchers);
+        }
+
         public void Add(Type type, NodeMatcherFactory nodeMatcherFactory)
         {
             nodeMatcherFactories.Add(type, (s, m, l) => (nodeMatcherFactory(s, m, l), null));

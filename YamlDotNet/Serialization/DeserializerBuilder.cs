@@ -334,18 +334,6 @@ namespace YamlDotNet.Serialization
         /// </summary>
         public IDeserializer Build()
         {
-            //INodeMapper GetBaseMapper(TagName tag)
-            //{
-            //    return schema.ResolveMapper(tag, out var mapper)
-            //        ? mapper
-            //        : throw new Exception($"Mapper for tag '{tag}' not found.");
-            //}
-
-            //var integerMapper = GetBaseMapper(YamlTagRepository.Integer);
-            //var floatingPointMapper = GetBaseMapper(YamlTagRepository.FloatingPoint);
-            //var stringMapper = GetBaseMapper(YamlTagRepository.String);
-            //var booleanMapper = GetBaseMapper(YamlTagRepository.Boolean);
-
             var tagNameResolver = new CompositeTagNameResolver(
                 new TableTagNameResolver(tagMappings.ToDictionary(p => p.Value, p => p.Key).AsReadonlyDictionary()),
                 TypeNameTagNameResolver.Instance
@@ -353,13 +341,14 @@ namespace YamlDotNet.Serialization
 
             var typeMatchers = new TypeMatcherTable(requireThreadSafety: true) // TODO: Configure requireThreadSafety
             {
+                // TODO: Allow specifying the base schema
                 CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.Boolean),
                 CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.Integer),
                 CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.FloatingPoint),
                 CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.String),
 
                 {
-                    typeof(ICollection<>),
+                    typeof(IEnumerable<>),
                     (concrete, iCollection, lookupMatcher) =>
                     {
                         var tag = tagNameResolver.Resolve(concrete);
@@ -374,7 +363,7 @@ namespace YamlDotNet.Serialization
                         }
 
                         var matcher = NodeMatcher
-                            .ForSequences(SequenceMapper.Create(tag, concrete, implementation, itemType))
+                            .ForSequences(SequenceMapper.Create(tag, implementation, itemType))
                             .Either(
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)
@@ -405,7 +394,7 @@ namespace YamlDotNet.Serialization
                         }
 
                         var matcher = NodeMatcher
-                            .ForMappings(MappingMapper.Create(tag, concrete, implementation, keyType, valueType))
+                            .ForMappings(MappingMapper.Create(tag, implementation, keyType, valueType))
                             .Either(
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)

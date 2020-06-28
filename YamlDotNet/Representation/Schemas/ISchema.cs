@@ -30,8 +30,8 @@ namespace YamlDotNet.Representation.Schemas
 
     public interface ISchemaIterator
     {
-        ISchemaIterator EnterNode(INode node, out INodeMapper mapper);
-        ISchemaIterator EnterValue(object? value, out INodeMapper mapper);
+        ISchemaIterator EnterNode(INode node, out INodeMapper? mapper);
+        ISchemaIterator EnterValue(object? value, out INodeMapper? mapper);
         ISchemaIterator EnterMappingValue();
 
         bool IsTagImplicit(IScalar scalar, out ScalarStyle style);
