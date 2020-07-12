@@ -36,7 +36,7 @@ namespace YamlDotNet.Serialization
     public abstract class BuilderSkeleton<TBuilder>
         where TBuilder : BuilderSkeleton<TBuilder>
     {
-        internal ISchema schema = null!; // TODO
+        internal ISchema schema = CoreSchema.Scalars;
         /*new CompositeSchema(
             DotNetSchema.Instance,
             CoreSchema.Instance

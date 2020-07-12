@@ -95,8 +95,8 @@ namespace YamlDotNet.Test.Spec
         {
             { "failsafe", FailsafeSchema.Lenient },
             { "json", JsonSchema.Lenient },
-            { "core", CoreSchema.Instance },
-            { "yaml11", Yaml11Schema.Instance },
+            { "core", CoreSchema.Complete },
+            { "yaml11", Yaml11Schema.Complete },
         };
 
         private static readonly Dictionary<string, object?> Functions = new Dictionary<string, object?>

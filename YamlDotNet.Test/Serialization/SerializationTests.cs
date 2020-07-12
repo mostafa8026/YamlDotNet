@@ -31,6 +31,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Xunit;
 using YamlDotNet.Core;
@@ -103,7 +104,7 @@ namespace YamlDotNet.Test.Serialization
         {
             Action action = () => Deserializer.Deserialize<bool>(UsingReaderFor("not-a-boolean"));
 
-            action.ShouldThrow<SemanticErrorException>();
+            action.ShouldThrow<FormatException>();
         }
 
         [Fact]
@@ -118,7 +119,7 @@ namespace YamlDotNet.Test.Serialization
         public void DeserializeScalarDecimal()
         {
             var result = new DeserializerBuilder()
-                .WithSchema(Yaml11Schema.Instance)
+                .WithSchema(Yaml11Schema.Complete)
                 .Build()
                 .Deserialize<int>(UsingReaderFor("+1_234_567"));
 
@@ -129,7 +130,7 @@ namespace YamlDotNet.Test.Serialization
         public void DeserializeScalarBinaryNumber()
         {
             var result = new DeserializerBuilder()
-                .WithSchema(Yaml11Schema.Instance)
+                .WithSchema(Yaml11Schema.Complete)
                 .Build()
                 .Deserialize<int>(UsingReaderFor("-0b1_0010_1001_0010"));
 
@@ -140,7 +141,7 @@ namespace YamlDotNet.Test.Serialization
         public void DeserializeScalarOctalNumber()
         {
             var result = new DeserializerBuilder()
-                .WithSchema(Yaml11Schema.Instance)
+                .WithSchema(Yaml11Schema.Complete)
                 .Build()
                 .Deserialize<int>(UsingReaderFor("+071_352"));
 
@@ -151,7 +152,7 @@ namespace YamlDotNet.Test.Serialization
         public void DeserializeScalarHexNumber()
         {
             var result = new DeserializerBuilder()
-                .WithSchema(Yaml11Schema.Instance)
+                .WithSchema(Yaml11Schema.Complete)
                 .Build()
                 .Deserialize<int>(UsingReaderFor("-0x_0F_B9"));
 
@@ -162,7 +163,7 @@ namespace YamlDotNet.Test.Serialization
         public void DeserializeScalarLongBase60Number()
         {
             var result = new DeserializerBuilder()
-                .WithSchema(Yaml11Schema.Instance)
+                .WithSchema(Yaml11Schema.Complete)
                 .Build()
                 .Deserialize<long>(UsingReaderFor("99_:58:47:3:52:10"));
 
@@ -1486,6 +1487,11 @@ namespace YamlDotNet.Test.Serialization
             public List<string>? b { get; set; }
             public List<string>? c { get; set; }
             public List<string>? d { get; set; }
+
+            public string? e { get; set; }
+            public string? f { get; set; }
+            public string? g { get; set; }
+            public string? h { get; set; }
         }
 
         [Fact]
@@ -1493,10 +1499,22 @@ namespace YamlDotNet.Test.Serialization
         {
             var yaml = Yaml.ParserForResource("anchors-overwriting.yaml");
             var serializer = new DeserializerBuilder()
-                .IgnoreUnmatchedProperties()
                 .Build();
             var deserialized = serializer.Deserialize<AnchorsOverwritingTestCase>(yaml);
+            
             Assert.NotNull(deserialized);
+
+            Assert.Equal(new[] { "foo" }, deserialized.a);
+            Assert.Same(deserialized.a, deserialized.b);
+
+            Assert.Equal(new[] { "bar" }, deserialized.c);
+            Assert.Same(deserialized.c, deserialized.d);
+
+            Assert.Equal("baz", deserialized.e);
+            Assert.Same(deserialized.e, deserialized.f);
+
+            Assert.Equal("foobar", deserialized.g);
+            Assert.Same(deserialized.g, deserialized.h);
         }
 
         [Fact]

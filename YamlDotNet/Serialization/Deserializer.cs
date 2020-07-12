@@ -105,7 +105,11 @@ namespace YamlDotNet.Serialization
             var schema = schemaFactory(type);
 
             var documents = Representation.Stream.Load(parser, _ => schema);
-            var document = documents.First();
+            var document = documents.FirstOrDefault();
+            if (document == null)
+            {
+                return TypeConverter.ChangeType(null, type);
+            }
 
             var native = document.Content.Mapper.Construct(document.Content);
             return TypeConverter.ChangeType(native, type);

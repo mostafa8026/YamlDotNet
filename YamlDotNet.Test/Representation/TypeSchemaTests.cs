@@ -226,7 +226,7 @@ namespace YamlDotNet.Test.Representation
                 );
             }
 
-            var schema = CoreSchema.Instance;
+            var schema = (ContextFreeSchema)CoreSchema.Complete;
 
             var typeMatchers = new TypeMatcherTable(false)
             {

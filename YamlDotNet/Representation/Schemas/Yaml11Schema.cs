@@ -30,7 +30,8 @@ namespace YamlDotNet.Representation.Schemas
     /// </summary>
     public static class Yaml11Schema
     {
-        public static readonly ISchema Instance = new ContextFreeSchema(CreateMatchers());
+        public static readonly ISchema Complete = new ContextFreeSchema(CreateMatchers(scalarsOnly: false));
+        public static readonly ISchema Scalars = new ContextFreeSchema(CreateMatchers(scalarsOnly: true));
 
         public static class IntegerMapper
         {
@@ -135,7 +136,7 @@ namespace YamlDotNet.Representation.Schemas
         }
 
 
-        private static IEnumerable<NodeMatcher> CreateMatchers()
+        private static IEnumerable<NodeMatcher> CreateMatchers(bool scalarsOnly)
         {
             yield return NodeMatcher
                 .ForScalars(
@@ -203,15 +204,18 @@ namespace YamlDotNet.Representation.Schemas
                 .MatchAnyNonSpecificTags()
                 .Create();
 
-            yield return NodeMatcher
-                .ForSequences(SequenceMapper<object>.Default)
-                .MatchAnyNonSpecificTags()
-                .Create();
+            if (scalarsOnly)
+            {
+                yield return NodeMatcher
+                    .ForSequences(SequenceMapper<object>.Default)
+                    .MatchAnyNonSpecificTags()
+                    .Create();
 
-            yield return NodeMatcher
-                .ForMappings(MappingMapper<object, object>.Default)
-                .MatchAnyNonSpecificTags()
-                .Create();
+                yield return NodeMatcher
+                    .ForMappings(MappingMapper<object, object>.Default)
+                    .MatchAnyNonSpecificTags()
+                    .Create();
+            }
         }
     }
 }

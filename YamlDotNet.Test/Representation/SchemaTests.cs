@@ -148,7 +148,7 @@ namespace YamlDotNet.Test.Representation
         [InlineData(".nan", "!!float .nan")]
         public void ParseWithCoreSchemaProducesCorrectTags(string input, string expected)
         {
-            ParseWithSchemaProducesCorrectTags(CoreSchema.Instance, input, expected);
+            ParseWithSchemaProducesCorrectTags(CoreSchema.Complete, input, expected);
         }
 
         private void ParseWithSchemaProducesCorrectTags(ISchema schema, string input, string expected)

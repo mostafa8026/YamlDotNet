@@ -29,7 +29,8 @@ namespace YamlDotNet.Representation.Schemas
     /// </summary>
     public static class CoreSchema
     {
-        public static readonly ContextFreeSchema Instance = new ContextFreeSchema(CreateMatchers());
+        public static readonly ISchema Complete = new ContextFreeSchema(CreateMatchers(scalarsOnly: false));
+        public static readonly ISchema Scalars = new ContextFreeSchema(CreateMatchers(scalarsOnly: true));
 
         public static class IntegerMapper
         {
@@ -99,7 +100,7 @@ namespace YamlDotNet.Representation.Schemas
             );
         }
 
-        private static IEnumerable<NodeMatcher> CreateMatchers()
+        private static IEnumerable<NodeMatcher> CreateMatchers(bool scalarsOnly)
         {
             yield return NodeMatcher
                 .ForScalars(
@@ -187,21 +188,24 @@ namespace YamlDotNet.Representation.Schemas
                 )
                 .Create();
 
-            yield return NodeMatcher
-                .ForSequences(SequenceMapper<object>.Default)
-                .Either(
-                    s => s.MatchAnyNonSpecificTags(),
-                    s => s.MatchTag(YamlTagRepository.Sequence)
-                )
-                .Create();
+            if (!scalarsOnly)
+            {
+                yield return NodeMatcher
+                    .ForSequences(SequenceMapper<object>.Default)
+                    .Either(
+                        s => s.MatchAnyNonSpecificTags(),
+                        s => s.MatchTag(YamlTagRepository.Sequence)
+                    )
+                    .Create();
 
-            yield return NodeMatcher
-                .ForMappings(MappingMapper<object, object>.Default)
-                .Either(
-                    s => s.MatchAnyNonSpecificTags(),
-                    s => s.MatchTag(YamlTagRepository.Mapping)
-                )
-                .Create();
+                yield return NodeMatcher
+                    .ForMappings(MappingMapper<object, object>.Default)
+                    .Either(
+                        s => s.MatchAnyNonSpecificTags(),
+                        s => s.MatchTag(YamlTagRepository.Mapping)
+                    )
+                    .Create();
+            }
         }
     }
 }

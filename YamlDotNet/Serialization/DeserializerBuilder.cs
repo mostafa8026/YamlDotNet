@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using YamlDotNet.Core;
@@ -343,10 +344,15 @@ namespace YamlDotNet.Serialization
             var typeMatchers = new TypeMatcherTable(requireThreadSafety: true) // TODO: Configure requireThreadSafety
             {
                 // TODO: Allow specifying the base schema
-                CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.Boolean),
-                CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.Integer),
-                CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.FloatingPoint),
-                CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.String),
+                //CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.Boolean),
+                //CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.Integer),
+                //CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.FloatingPoint),
+                //CoreSchema.Instance.GetNodeMatcherForTag(YamlTagRepository.String),
+
+                {
+                    typeof(string),
+                    (_, __, ___) => NodeMatcher.NoMatch
+                },
 
                 {
                     typeof(IEnumerable<>),
@@ -460,8 +466,8 @@ namespace YamlDotNet.Serialization
 
             //return new Deserializer(root => new TypeSchema(typeMatchers, root, tagMappings.Values));
             return new Deserializer(root => new CompositeSchema(
-                new TypeSchema(typeMatchers, root, tagMappings.Values),
-                CoreSchema.Instance
+                schema,
+                new TypeSchema(typeMatchers, root, tagMappings.Values)
             ));
         }
     }

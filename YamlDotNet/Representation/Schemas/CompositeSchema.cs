@@ -51,19 +51,26 @@ namespace YamlDotNet.Representation.Schemas
 
             public bool TryEnterNode(INode node, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
-                if (primary.TryEnterNode(node, out childIterator, out mapper))
+                bool entered;
+                ISchemaIterator? secondaryChildIterator;
+
+                if (primary.TryEnterNode(node, out childIterator!, out mapper!))
                 {
-                    if (secondary.TryEnterNode(node, out var secondaryChildIterator, out _))
-                    {
-                        childIterator = new CompositeIterator(childIterator, secondaryChildIterator);
-                        return true;
-                    }
-                    return true;
+                    secondary.TryEnterNode(node, out secondaryChildIterator, out _);
+                    entered = true;
                 }
                 else
                 {
-                    return secondary.TryEnterNode(node, out childIterator, out mapper);
+                    entered = secondary.TryEnterNode(node, out secondaryChildIterator, out mapper!);
                 }
+
+                if (secondaryChildIterator != null)
+                {
+                    childIterator = childIterator != null
+                        ? new CompositeIterator(childIterator, secondaryChildIterator)
+                        : secondaryChildIterator;
+                }
+                return entered;
             }
 
             public bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)

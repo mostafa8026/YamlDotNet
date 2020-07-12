@@ -21,8 +21,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices.ComTypes;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Helpers;
@@ -38,26 +40,49 @@ namespace YamlDotNet.Representation
             return Load(new Parser(new StringReader(yaml)), schemaSelector);
         }
 
+        private static bool TryLoadDocument(IParser parser, Func<DocumentStart, ISchema> schemaSelector, [NotNullWhen(true)] out Document? document)
+        {
+            if (parser.TryConsume<DocumentStart>(out var documentStart))
+            {
+                var schema = schemaSelector(documentStart);
+
+                var loader = new NodeLoader(parser);
+                var node = loader.LoadNode(schema.Root, out _);
+
+                parser.Consume<DocumentEnd>();
+                document = new Document(node, schema);
+                return true;
+            }
+            else
+            {
+                document = null;
+                return false;
+            }
+        }
+
+        private static IEnumerable<Document> LoadDocuments(IParser parser, Func<DocumentStart, ISchema> schemaSelector)
+        {
+            while (TryLoadDocument(parser, schemaSelector, out var document))
+            {
+                yield return document;
+            }
+            parser.Consume<StreamEnd>();
+        }
+
         public static IEnumerable<Document> Load(IParser parser, Func<DocumentStart, ISchema> schemaSelector, bool stream = false)
         {
-            static IEnumerable<Document> LoadDocuments(IParser parser, Func<DocumentStart, ISchema> schemaSelector)
+            var loadMultipleDocuments = parser.TryConsume<StreamStart>(out _);
+            if (loadMultipleDocuments)
             {
-                parser.Consume<StreamStart>();
-                while (parser.TryConsume<DocumentStart>(out var documentStart))
-                {
-                    var schema = schemaSelector(documentStart);
-
-                    var loader = new NodeLoader(parser);
-                    var node = loader.LoadNode(schema.Root, out _);
-
-                    parser.Consume<DocumentEnd>();
-                    yield return new Document(node, schema);
-                }
-                parser.Consume<StreamEnd>();
+                var documents = LoadDocuments(parser, schemaSelector);
+                return stream ? documents : documents.ToList();
             }
-
-            var documents = LoadDocuments(parser, schemaSelector);
-            return stream ? documents : documents.ToList();
+            else
+            {
+                return TryLoadDocument(parser, schemaSelector, out var document)
+                    ? new[] { document }
+                    : Enumerable.Empty<Document>();
+            }
         }
 
         public static string Dump(IEnumerable<Document> stream, bool explicitSeparators = false)
