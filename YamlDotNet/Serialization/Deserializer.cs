@@ -45,10 +45,8 @@ namespace YamlDotNet.Serialization
 
         public T Deserialize<T>(string input)
         {
-            using (var reader = new StringReader(input))
-            {
-                return Deserialize<T>(reader);
-            }
+            using var reader = new StringReader(input);
+            return Deserialize<T>(reader);
         }
 
         public T Deserialize<T>(TextReader input)
@@ -63,10 +61,8 @@ namespace YamlDotNet.Serialization
 
         public object? Deserialize(string input, Type type)
         {
-            using (var reader = new StringReader(input))
-            {
-                return Deserialize(reader, type);
-            }
+            using var reader = new StringReader(input);
+            return Deserialize(reader, type);
         }
 
         public object? Deserialize(TextReader input, Type type)

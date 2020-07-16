@@ -1176,7 +1176,6 @@ namespace YamlDotNet.Test.Serialization
                     "scratch: 'scratcher'",
                     "deleteScratch: false",
                     "notScratch: 9443",
-                    "notScratch: 192.168.1.30",
                     "mappedScratch:",
                     "- '/work/'"
                 );
@@ -1417,7 +1416,7 @@ namespace YamlDotNet.Test.Serialization
         [Fact]
         public void YamlConvertiblesAreAbleToEmitAndParseComments()
         {
-            var serializer = new Serializer();
+            var serializer = new SerializerBuilder().Build();
             var yaml = serializer.Serialize(new CommentWrapper<string> { Comment = "A comment", Value = "The value" });
 
             var deserializer = new DeserializerBuilder().Build();
@@ -1461,7 +1460,7 @@ namespace YamlDotNet.Test.Serialization
         [InlineData(0x8000000000000000UL)]
         public void DeserializationOfUInt64Succeeds(ulong value)
         {
-            var yaml = new Serializer().Serialize(value);
+            var yaml = new SerializerBuilder().Build().Serialize(value);
             Assert.Contains(value.ToString(), yaml);
 
             ulong parsed = new DeserializerBuilder().Build().Deserialize<ulong>(yaml);
@@ -1474,7 +1473,7 @@ namespace YamlDotNet.Test.Serialization
         [InlineData(0L)]
         public void DeserializationOfInt64Succeeds(long value)
         {
-            var yaml = new Serializer().Serialize(value);
+            var yaml = new SerializerBuilder().Build().Serialize(value);
             Assert.Contains(value.ToString(), yaml);
 
             long parsed = new DeserializerBuilder().Build().Deserialize<long>(yaml);

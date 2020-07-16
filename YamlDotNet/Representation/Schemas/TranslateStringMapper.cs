@@ -25,31 +25,49 @@ using YamlDotNet.Core;
 namespace YamlDotNet.Representation.Schemas
 {
     /// <summary>
-    /// The tag:yaml.org,2002:str tag, as specified in the Failsafe schema.
+    /// Maps a constant <see cref="String" /> to a different constant, for representation.
     /// </summary>
-    /// <remarks>
-    /// Use <see cref="System.String" /> as native representation.
-    /// </remarks>
-    public sealed class StringMapper : INodeMapper
+    public sealed class TranslateStringMapper : INodeMapper
     {
-        public static readonly StringMapper Default = new StringMapper(YamlTagRepository.String);
+        private readonly string nativeValue;
+        private readonly Scalar representation;
 
-        public StringMapper(TagName tag)
+        public TranslateStringMapper(string representationValue, string nativeValue)
         {
-            Tag = tag;
+            if (representationValue is null)
+            {
+                throw new ArgumentNullException(nameof(representationValue));
+            }
+
+            this.nativeValue = nativeValue ?? throw new ArgumentNullException(nameof(nativeValue));
+            representation = new Scalar(this, representationValue);
         }
 
-        public TagName Tag { get; }
+        public TagName Tag => YamlTagRepository.String;
         public INodeMapper Canonical => this;
 
         public object? Construct(Node node)
         {
-            return node.Expect<Scalar>().Value;
+            var actualValue = node.Expect<Scalar>().Value;
+            if (!representation.Value.Equals(actualValue))
+            {
+                throw new YamlException(node.Start, node.End, $"Expected a scalar with a value of '{representation.Value}', instead the value was '{actualValue}'.");
+            }
+            return nativeValue;
         }
 
         public Node Represent(object? native, ISchemaIterator iterator)
         {
-            return new Scalar(this, (string)native!);
+            if (!nativeValue.Equals(native))
+            {
+                throw new YamlException($"Expected a string with a value of '{nativeValue}', instead the value was '{native}'.");
+            }
+            return representation;
+        }
+
+        public override string ToString()
+        {
+            return $"'{representation.Value}' <-> '{nativeValue}'";
         }
     }
 }

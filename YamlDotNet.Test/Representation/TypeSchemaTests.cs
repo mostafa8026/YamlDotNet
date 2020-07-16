@@ -314,7 +314,7 @@ namespace YamlDotNet.Test.Representation
                         {
                             throw new ArgumentException($"Could not resolve a tag for type '{concrete.FullName}'.");
                         }
-                        var mapper = new ObjectMapper(concrete, tag);
+                        var mapper = new ObjectMapper(concrete, tag, false);
 
                         var matcher = NodeMatcher
                             .ForMappings(mapper)

@@ -34,11 +34,13 @@ namespace YamlDotNet.Serialization.Schemas
     public sealed class ObjectMapper : INodeMapper
     {
         private readonly Type type;
+        private readonly bool ignoreUnmatchedProperties;
 
-        public ObjectMapper(Type type, TagName tag)
+        public ObjectMapper(Type type, TagName tag, bool ignoreUnmatchedProperties)
         {
             this.type = type;
             Tag = tag;
+            this.ignoreUnmatchedProperties = ignoreUnmatchedProperties;
         }
 
         public TagName Tag { get; }
@@ -49,6 +51,7 @@ namespace YamlDotNet.Serialization.Schemas
             var mapping = node.Expect<Mapping>();
 
             // TODO: Pre-calculate the constructor(s) using expression trees
+            // TODO: Object factory ?
             var native = Activator.CreateInstance(type)!;
             foreach (var (keyNode, valueNode) in mapping)
             {
@@ -56,8 +59,15 @@ namespace YamlDotNet.Serialization.Schemas
                 var keyAsString = TypeConverter.ChangeType<string>(key);
                 // TODO: Naming convention
                 // TODO: Type inspector
-                var property = type.GetPublicProperty(keyAsString)
-                    ?? throw new YamlException(keyNode.Start, keyNode.End, $"The property '{keyAsString}' was not found on type '{type.FullName}'."); // TODO: Exception type
+                var property = type.GetPublicProperty(keyAsString);
+                if (property == null)
+                {
+                    if (ignoreUnmatchedProperties)
+                    {
+                        continue;
+                    }
+                    throw new YamlException(keyNode.Start, keyNode.End, $"The property '{keyAsString}' was not found on type '{type.FullName}'."); // TODO: Exception type
+                }
 
                 var value = valueNode.Mapper.Construct(valueNode);
                 var convertedValue = TypeConverter.ChangeType(value, property.PropertyType);

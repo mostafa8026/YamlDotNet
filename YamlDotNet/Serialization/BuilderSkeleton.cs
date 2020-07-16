@@ -26,6 +26,7 @@ using YamlDotNet.Core;
 using YamlDotNet.Representation.Schemas;
 using YamlDotNet.Serialization.Converters;
 using YamlDotNet.Serialization.NamingConventions;
+using YamlDotNet.Serialization.Schemas;
 using YamlDotNet.Serialization.TypeInspectors;
 
 namespace YamlDotNet.Serialization
@@ -33,8 +34,7 @@ namespace YamlDotNet.Serialization
     /// <summary>
     /// Common implementation of <see cref="SerializerBuilder" /> and <see cref="DeserializerBuilder" />.
     /// </summary>
-    public abstract class BuilderSkeleton<TBuilder>
-        where TBuilder : BuilderSkeleton<TBuilder>
+    public abstract class BuilderSkeleton<TBuilder>where TBuilder : BuilderSkeleton<TBuilder>
     {
         internal ISchema schema = CoreSchema.Scalars;
         /*new CompositeSchema(
@@ -307,6 +307,139 @@ namespace YamlDotNet.Serialization
         protected IEnumerable<IYamlTypeConverter> BuildTypeConverters()
         {
             return typeConverterFactories.BuildComponentList();
+        }
+
+
+        protected Func<Type, ISchema> BuildSchemaFactory(IReadOnlyDictionary<Type, TagName> tagMappings, bool ignoreUnmatched)
+        {
+            var tagNameResolver = new CompositeTagNameResolver(
+                new TableTagNameResolver(tagMappings),
+                TypeNameTagNameResolver.Instance
+            );
+
+            var typeMatchers = new TypeMatcherTable(requireThreadSafety: true) // TODO: Configure requireThreadSafety
+            {
+                { // TODO: Review this
+                    typeof(string),
+                    (_, __, ___) => NodeMatcher.NoMatch
+                },
+
+                {
+                    typeof(IEnumerable<>),
+                    (concrete, iCollection, lookupMatcher) =>
+                    {
+                        var tag = tagNameResolver.Resolve(concrete);
+
+                        var genericArguments = iCollection.GetGenericArguments();
+                        var itemType = genericArguments[0];
+
+                        var implementation = concrete;
+                        if (concrete.IsInterface())
+                        {
+                            implementation = typeof(List<>).MakeGenericType(genericArguments);
+                        }
+
+                        var matcher = NodeMatcher
+                            .ForSequences(SequenceMapper.Create(tag, implementation, itemType))
+                            .Either(
+                                s => s.MatchEmptyTags(),
+                                s => s.MatchTag(tag)
+                            )
+                            .MatchTypes(concrete)
+                            .Create();
+
+                        return (
+                            matcher,
+                            () => matcher.AddItemMatcher(lookupMatcher(itemType))
+                        );
+                    }
+                },
+                {
+                    typeof(IDictionary<,>),
+                    (concrete, iDictionary, lookupMatcher) =>
+                    {
+                        var tag = tagNameResolver.Resolve(concrete);
+
+                        var genericArguments = iDictionary.GetGenericArguments();
+                        var keyType = genericArguments[0];
+                        var valueType = genericArguments[1];
+
+                        var implementation = concrete;
+                        if (concrete.IsInterface())
+                        {
+                            implementation = typeof(Dictionary<,>).MakeGenericType(genericArguments);
+                        }
+
+                        var matcher = NodeMatcher
+                            .ForMappings(MappingMapper.Create(tag, implementation, keyType, valueType))
+                            .Either(
+                                s => s.MatchEmptyTags(),
+                                s => s.MatchTag(tag)
+                            )
+                            .MatchTypes(concrete)
+                            .Create();
+
+                        return (
+                            matcher,
+                            () =>
+                            {
+                                matcher.AddItemMatcher(
+                                    keyMatcher: lookupMatcher(keyType),
+                                    valueMatchers: lookupMatcher(valueType)
+                                );
+                            }
+                        );
+                    }
+                },
+                {
+                    typeof(object),
+                    (concrete, _, lookupMatcher) =>
+                    {
+                        if (concrete == typeof(object))
+                        {
+                            return (NodeMatcher.NoMatch, null);
+                        }
+
+                        var tag = tagNameResolver.Resolve(concrete);
+                        var mapper = new ObjectMapper(concrete, tag, ignoreUnmatched);
+
+                        var matcher = NodeMatcher
+                            .ForMappings(mapper)
+                            .Either(
+                                s => s.MatchEmptyTags(),
+                                s => s.MatchTag(tag)
+                            )
+                            .MatchTypes(concrete)
+                            .Create();
+
+                        return (
+                            matcher,
+                            () =>
+                            {
+                                // TODO: Type inspector
+                                var properties = concrete.GetPublicProperties();
+                                foreach (var property in properties)
+                                {
+                                    var keyName = namingConvention.Apply(property.Name);
+
+                                    matcher.AddItemMatcher(
+                                        keyMatcher: NodeMatcher
+                                            .ForScalars(new TranslateStringMapper(keyName, property.Name))
+                                            .MatchValue(keyName)
+                                            .Create(),
+                                        valueMatchers: lookupMatcher(property.PropertyType)
+                                    );
+                                }
+                            }
+                        );
+                    }
+                }
+            };
+
+            return root => new CompositeSchema(
+                new TypeSchema(typeMatchers, root, tagMappings.Keys),
+                schema
+            );
         }
     }
 
