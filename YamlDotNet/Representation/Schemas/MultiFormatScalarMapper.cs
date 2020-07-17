@@ -101,10 +101,10 @@ namespace YamlDotNet.Representation.Schemas
             throw new SemanticErrorException(node.Start, node.End, $"The node '{node}' could not be parsed as '{Tag}'.");
         }
 
-        public Node Represent(object? native, ISchemaIterator iterator)
+        public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
         {
             // It is assumed that the first mapper uses the canonical representation.
-            return formats[0].Mapper.Represent(native, iterator);
+            return formats[0].Mapper.Represent(native, iterator, recursionLimit);
         }
 
         public sealed class FormatMapperEntry

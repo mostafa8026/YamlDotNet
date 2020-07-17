@@ -69,8 +69,10 @@ namespace YamlDotNet.Representation.Schemas
             return dictionary;
         }
 
-        public Node Represent(object? native, ISchemaIterator iterator)
+        public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
         {
+            recursionLimit.Increment();
+
             var children = new Dictionary<Node, Node>();
 
             // Notice that the children collection will still be mutated after constructing the Sequence object.
@@ -79,13 +81,16 @@ namespace YamlDotNet.Representation.Schemas
 
             foreach (var (key, value) in (IDictionary<TKey, TValue>)native!)
             {
+
                 var keyIterator = iterator.EnterValue(key, out var keyMapper);
-                var keyNode = keyMapper.Represent(key, keyIterator);
+                var keyNode = keyMapper.Represent(key, keyIterator, recursionLimit);
 
                 var valueIterator = keyIterator.EnterMappingValue().EnterValue(value, out var valueMapper);
-                var valueNode = valueMapper.Represent(value, valueIterator);
+                var valueNode = valueMapper.Represent(value, valueIterator, recursionLimit);
                 children.Add(keyNode, valueNode);
             }
+            
+            recursionLimit.Decrement();
             return mapping;
         }
     }

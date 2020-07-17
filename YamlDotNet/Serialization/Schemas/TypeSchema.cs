@@ -56,10 +56,12 @@ namespace YamlDotNet.Serialization.Schemas
 
         public ISchemaIterator Root { get; }
 
+        public IEnumerable<Type> KnownTypes => Enumerable.Empty<Type>(); // TODO: See if we need this
+
         public Document Represent(object? value)
         {
             var iterator = Root.EnterValue(value, out var mapper);
-            var content = mapper.Represent(value, iterator);
+            var content = mapper.Represent(value, iterator, new RecursionLevel(200)); // TODO: Configure recursion limit somewhere
 
             return new Document(content, this);
         }
@@ -175,17 +177,42 @@ namespace YamlDotNet.Serialization.Schemas
 
             public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
             {
-                throw new NotImplementedException("TODO");
+                if (matcher is ScalarMatcher scalarMatcher && scalarMatcher.MatchesContent(scalar))
+                {
+                    var plainAllowed = scalar.Value.Length > 0;
+                    style = plainAllowed
+                        ? ScalarStyle.Plain
+                        : scalarMatcher.SuggestedStyle;
+
+                    return true;
+                }
+
+                style = default;
+                return false;
             }
 
             public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
             {
-                throw new NotImplementedException("TODO");
+                if (matcher is SequenceMatcher sequenceMatcher && sequenceMatcher.Matches(sequence))
+                {
+                    style = sequenceMatcher.SuggestedStyle;
+                    return true;
+                }
+
+                style = default;
+                return false;
             }
 
             public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
             {
-                throw new NotImplementedException("TODO");
+                if (matcher is MappingMatcher mappingMatcher && mappingMatcher.Matches(mapping))
+                {
+                    style = mappingMatcher.SuggestedStyle;
+                    return true;
+                }
+
+                style = default;
+                return false;
             }
 
             public override string ToString() => matcher.ToString();

@@ -40,24 +40,39 @@ namespace YamlDotNet.Representation.Schemas
                         YamlTagRepository.Binary,
                         s => Convert.FromBase64String(s.Expect<Scalar>().Value),
                         val => Convert.ToBase64String((byte[])val!)
-                    )
+                    ),
+                    typeof(byte[])
                 )
-                .MatchPattern(@"^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\+/\r\n\s]*(=|==)?$")
-                .MatchEmptyTags()
-                .MatchTypes(typeof(byte[]))
+                .MatchTag(YamlTagRepository.Binary)
+                //.MatchPattern(@"^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\+/\r\n\s]*(=|==)?$")
+                //.MatchEmptyTags()
                 .Create();
 
             yield return NodeMatcher
                 .ForScalars(
                     NodeMapper.CreateScalarMapper(
-                        YamlTagRepository.Binary,
+                        YamlTagRepository.Timestamp,
                         s => TimestampParser.Parse(s.Value),
-                        val => ((DateTimeOffset)val!).ToString("yyyy-MM-ddTHH:mm:ss.FFFFFFFK")
-                    )
+                        val => TimestampParser.Represent(val!)
+                    ),
+                    typeof(DateTimeOffset),
+                    typeof(DateTime)
                 )
                 .MatchPattern(TimestampParser.TimestampPattern)
                 .MatchEmptyTags()
-                .MatchTypes(typeof(DateTimeOffset))
+                .Create();
+
+            yield return NodeMatcher
+                .ForScalars(
+                    NodeMapper.CreateScalarMapper(
+                        new TagName("tag:dotnet:guid"), // TODO: Find a good tag name for this
+                        s => new Guid(s.Value),
+                        val => ((Guid)val!).ToString("D")
+                    ),
+                    typeof(Guid)
+                )
+                .MatchPattern(@"^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){4}[0-9a-fA-F]{8}$")
+                .MatchEmptyTags()
                 .Create();
         }
     }

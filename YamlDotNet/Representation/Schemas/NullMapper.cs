@@ -48,7 +48,7 @@ namespace YamlDotNet.Representation.Schemas
             return null;
         }
 
-        public Node Represent(object? native, ISchemaIterator iterator)
+        public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
         {
             return NullScalar;
         }

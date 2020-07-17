@@ -36,11 +36,10 @@ namespace YamlDotNet.Serialization
     /// </summary>
     public abstract class BuilderSkeleton<TBuilder>where TBuilder : BuilderSkeleton<TBuilder>
     {
-        internal ISchema schema = CoreSchema.Scalars;
-        /*new CompositeSchema(
+        internal ISchema schema = new CompositeSchema(
             DotNetSchema.Instance,
-            CoreSchema.Instance
-        );*/
+            CoreSchema.Scalars
+        );
 
         internal INamingConvention namingConvention = NullNamingConvention.Instance;
         internal ITypeResolver typeResolver;
@@ -319,11 +318,6 @@ namespace YamlDotNet.Serialization
 
             var typeMatchers = new TypeMatcherTable(requireThreadSafety: true) // TODO: Configure requireThreadSafety
             {
-                { // TODO: Review this
-                    typeof(string),
-                    (_, __, ___) => NodeMatcher.NoMatch
-                },
-
                 {
                     typeof(IEnumerable<>),
                     (concrete, iCollection, lookupMatcher) =>
@@ -340,12 +334,11 @@ namespace YamlDotNet.Serialization
                         }
 
                         var matcher = NodeMatcher
-                            .ForSequences(SequenceMapper.Create(tag, implementation, itemType))
+                            .ForSequences(SequenceMapper.Create(tag, implementation, itemType), concrete)
                             .Either(
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)
                             )
-                            .MatchTypes(concrete)
                             .Create();
 
                         return (
@@ -371,12 +364,11 @@ namespace YamlDotNet.Serialization
                         }
 
                         var matcher = NodeMatcher
-                            .ForMappings(MappingMapper.Create(tag, implementation, keyType, valueType))
+                            .ForMappings(MappingMapper.Create(tag, implementation, keyType, valueType), concrete)
                             .Either(
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)
                             )
-                            .MatchTypes(concrete)
                             .Create();
 
                         return (
@@ -404,12 +396,11 @@ namespace YamlDotNet.Serialization
                         var mapper = new ObjectMapper(concrete, tag, ignoreUnmatched);
 
                         var matcher = NodeMatcher
-                            .ForMappings(mapper)
+                            .ForMappings(mapper, concrete)
                             .Either(
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)
                             )
-                            .MatchTypes(concrete)
                             .Create();
 
                         return (
@@ -435,6 +426,11 @@ namespace YamlDotNet.Serialization
                     }
                 }
             };
+
+            foreach (var knownType in schema.KnownTypes)
+            {
+                typeMatchers.Add(knownType, (_, __, ___) => NodeMatcher.NoMatch);
+            }
 
             return root => new CompositeSchema(
                 new TypeSchema(typeMatchers, root, tagMappings.Keys),

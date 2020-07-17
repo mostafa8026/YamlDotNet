@@ -70,5 +70,15 @@ namespace YamlDotNet.Representation.Schemas
                 return DateTimeOffset.ParseExact(date, ShortDateFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);
             }
         }
+
+        public static string Represent(object? date)
+        {
+            return date switch
+            {
+                DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:ss.FFFFFFFK"),
+                DateTime dateTime => dateTime.ToString("yyyy-MM-ddTHH:mm:ss.FFFFFFFK"),
+                _ => throw new ArgumentException("The value should be either DateTime or DateTimeOffset", nameof(date)),
+            };
+        }
     }
 }

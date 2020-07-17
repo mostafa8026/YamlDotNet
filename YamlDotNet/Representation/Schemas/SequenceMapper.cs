@@ -78,8 +78,10 @@ namespace YamlDotNet.Representation.Schemas
             return collection;
         }
 
-        public Node Represent(object? native, ISchemaIterator iterator)
+        public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
         {
+            recursionLimit.Increment();
+            
             var children = new List<Node>();
 
             // Notice that the children collection will still be mutated after constructing the Sequence object.
@@ -89,9 +91,11 @@ namespace YamlDotNet.Representation.Schemas
             foreach (var item in (ICollection<TElement>)native!)
             {
                 var itemIterator = iterator.EnterValue(item, out var itemMapper);
-                var childNode = itemMapper.Represent(item, itemIterator);
+                var childNode = itemMapper.Represent(item, itemIterator, recursionLimit);
                 children.Add(childNode);
             }
+
+            recursionLimit.Decrement();
 
             return sequence;
         }

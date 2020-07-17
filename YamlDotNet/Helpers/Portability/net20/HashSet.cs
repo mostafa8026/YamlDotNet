@@ -35,6 +35,14 @@ namespace System.Collections.Generic
             items = new Dictionary<T, object?>(comparer);
         }
 
+        public HashSet(IEnumerable<T> collection) : this()
+        {
+            foreach (var item in collection)
+            {
+                Add(item);
+            }
+        }
+
         public bool Add(T value)
         {
             if (Contains(value))

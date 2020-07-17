@@ -32,11 +32,13 @@ namespace YamlDotNet.Representation.Schemas
         public ContextFreeSchema(IEnumerable<NodeMatcher> matchers)
         {
             root = new Iterator(matchers);
+            KnownTypes = new HashSet<Type>(root.nodeMatchers.SelectMany(m => m.HandledTypes));
         }
 
         private readonly Iterator root;
 
         public ISchemaIterator Root => root;
+        public IEnumerable<Type> KnownTypes { get; }
 
         public IEnumerable<NodeMatcher> GetNodeMatchersForTag(TagName tag)
         {
@@ -50,7 +52,7 @@ namespace YamlDotNet.Representation.Schemas
 
         private sealed class Iterator : ISchemaIterator
         {
-            private readonly IEnumerable<NodeMatcher> nodeMatchers;
+            public readonly IEnumerable<NodeMatcher> nodeMatchers;
             public readonly ILookup<TagName, NodeMatcher> matchersByTag;
             private readonly IDictionary<TagName, INodeMapper> knownTags;
 
@@ -100,7 +102,22 @@ namespace YamlDotNet.Representation.Schemas
 
             public bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
-                throw new NotImplementedException("TODO");
+                childIterator = this;
+                if (value != null)
+                {
+                    var typeOfValue = value.GetType();
+                    foreach (var matcher in nodeMatchers)
+                    {
+                        if (matcher.Matches(typeOfValue))
+                        {
+                            mapper = matcher.Mapper.Canonical;
+                            return true;
+                        }
+                    }
+                }
+
+                mapper = null;
+                return false;
             }
 
             public bool TryEnterMappingValue([NotNullWhen(true)] out ISchemaIterator? childIterator)

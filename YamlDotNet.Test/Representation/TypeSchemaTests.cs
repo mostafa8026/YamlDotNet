@@ -252,12 +252,11 @@ namespace YamlDotNet.Test.Representation
                         }
 
                         var matcher = NodeMatcher
-                            .ForSequences(SequenceMapper.Create(tag, implementation, itemType))
+                            .ForSequences(SequenceMapper.Create(tag, implementation, itemType), concrete)
                             .Either(
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)
                             )
-                            .MatchTypes(concrete)
                             .Create();
 
                         return (
@@ -286,12 +285,11 @@ namespace YamlDotNet.Test.Representation
                         }
 
                         var matcher = NodeMatcher
-                            .ForMappings(MappingMapper.Create(tag, implementation, keyType, valueType))
+                            .ForMappings(MappingMapper.Create(tag, implementation, keyType, valueType), concrete)
                             .Either(
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)
                             )
-                            .MatchTypes(concrete)
                             .Create();
 
                         return (
@@ -317,12 +315,11 @@ namespace YamlDotNet.Test.Representation
                         var mapper = new ObjectMapper(concrete, tag, false);
 
                         var matcher = NodeMatcher
-                            .ForMappings(mapper)
+                            .ForMappings(mapper, concrete)
                             .Either(
                                 s => s.MatchEmptyTags(),
                                 s => s.MatchTag(tag)
                             )
-                            .MatchTypes(concrete)
                             .Create();
 
                         return (

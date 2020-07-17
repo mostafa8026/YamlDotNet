@@ -114,7 +114,7 @@ namespace YamlDotNet.Serialization
 
             var schema = schemaFactory(type);
             var iterator = schema.Root.EnterValue(graph, out var mapper);
-            var content = mapper.Represent(graph, iterator);
+            var content = mapper.Represent(graph, iterator, new RecursionLevel(200)); // TODO: Configure recursion limit somewhere
 
             var document = new Document(content, schema);
             Stream.Dump(emitter, new[] { document });

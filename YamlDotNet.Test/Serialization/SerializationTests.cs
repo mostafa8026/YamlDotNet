@@ -190,9 +190,9 @@ namespace YamlDotNet.Test.Serialization
                 Child2 = obj
             };
 
-            Action action = () => SerializerBuilder.EnsureRoundtrip().Build().Serialize(new StringWriter(), obj, typeof(CircularReference));
+            SerializerBuilder.EnsureRoundtrip().Build().Serialize(new StringWriter(), obj, typeof(CircularReference));
 
-            action.ShouldNotThrow();
+            // Should not throw
         }
 
         [Fact]
@@ -658,7 +658,7 @@ namespace YamlDotNet.Test.Serialization
 
             Serializer.Serialize(writer, guid);
             var serialized = writer.ToString();
-            Regex.IsMatch(serialized, "^" + guid.ToString("D")).Should().BeTrue("serialized content should contain the guid, but instead contained: " + serialized);
+            Regex.IsMatch(serialized, "^" + guid.ToString("D")).Should().BeTrue("serialized content should contain the guid, but instead contained: {0}", serialized);
         }
 
         [Fact]

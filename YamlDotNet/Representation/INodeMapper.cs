@@ -49,11 +49,12 @@ namespace YamlDotNet.Representation
         /// </summary>
         /// <param name="native">The value to be converted. It must be compatible with this mapper's <see cref="Tag"/>.</param>
         /// <param name="iterator">The <see cref="ISchemaIterator" /> that should be used to resolve tags.</param>
+        /// <param name="recursionLimit">A <see cref="RecursionLevel" /> instance that is used to limit the maximum amount of recursion.</param>
         /// <returns>
         /// Returns a <see cref="Node"/> that represents the <paramref name="native"/> in YAML,
         /// according to this <see cref="Tag"/>'s rules.
         /// </returns>
-        Node Represent(object? native, ISchemaIterator iterator);
+        Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit);
 
         /// <summary>
         /// Gets the canonical version of this <see cref="INodeMapper" />.

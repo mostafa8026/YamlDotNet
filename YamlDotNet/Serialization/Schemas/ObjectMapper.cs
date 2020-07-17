@@ -21,13 +21,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using YamlDotNet.Core;
 using YamlDotNet.Helpers;
 using YamlDotNet.Representation;
 using YamlDotNet.Representation.Schemas;
 using YamlDotNet.Serialization.Utilities;
-using Scalar = YamlDotNet.Representation.Scalar;
 
 namespace YamlDotNet.Serialization.Schemas
 {
@@ -76,12 +74,14 @@ namespace YamlDotNet.Serialization.Schemas
             return native;
         }
 
-        public Node Represent(object? native, ISchemaIterator iterator)
+        public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
         {
             if (native == null) // TODO: Do we need this ?
             {
                 return NullMapper.Default.NullScalar;
             }
+
+            recursionLimit.Increment();
 
             var children = new Dictionary<Node, Node>();
 
@@ -103,14 +103,17 @@ namespace YamlDotNet.Serialization.Schemas
                     // Here we use EnterNode instead of EnterValue because we'll need to match the value
                     // TODO: If we iterated the children from the iterator, we wouldn't need to do this!
                     var keyIterator = iterator.EnterNode(new PropertyName(key), out var keyMapper);
-                    var keyNode = keyMapper.Represent(key, keyIterator);
+                    var keyNode = keyMapper.Represent(key, keyIterator, recursionLimit);
 
                     var valueIterator = keyIterator.EnterMappingValue().EnterValue(value, out var valueMapper);
-                    var valueNode = valueMapper.Represent(value, valueIterator);
+                    var valueNode = valueMapper.Represent(value, valueIterator, recursionLimit);
 
                     children.Add(keyNode, valueNode);
                 }
             }
+
+            recursionLimit.Decrement();
+
             return mapping;
         }
 

@@ -19,6 +19,8 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
+using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
 
@@ -27,6 +29,7 @@ namespace YamlDotNet.Representation.Schemas
     public interface ISchema
     {
         ISchemaIterator Root { get; }
+        IEnumerable<Type> KnownTypes { get; }
     }
 
     public interface ISchemaIterator

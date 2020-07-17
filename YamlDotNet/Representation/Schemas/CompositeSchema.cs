@@ -20,7 +20,9 @@
 //  SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using YamlDotNet.Core;
 
 namespace YamlDotNet.Representation.Schemas
@@ -34,9 +36,11 @@ namespace YamlDotNet.Representation.Schemas
         {
             this.primary = primary ?? throw new ArgumentNullException(nameof(primary));
             this.secondary = secondary ?? throw new ArgumentNullException(nameof(secondary));
+            KnownTypes = new HashSet<Type>(primary.KnownTypes.Concat(secondary.KnownTypes));
         }
 
         public ISchemaIterator Root => new CompositeIterator(primary.Root, secondary.Root);
+        public IEnumerable<Type> KnownTypes { get; }
 
         private sealed class CompositeIterator : ISchemaIterator
         {
@@ -51,17 +55,35 @@ namespace YamlDotNet.Representation.Schemas
 
             public bool TryEnterNode(INode node, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
             {
+                return TryEnter(node, TryEnterNodeHelper, out childIterator, out mapper);
+            }
+
+            public bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
+            {
+                return TryEnter(value, TryEnterValueHelper, out childIterator, out mapper);
+            }
+
+            private delegate bool TryEnterDelegate<T>(ISchemaIterator iterator, T item, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper);
+
+            private static bool TryEnterNodeHelper(ISchemaIterator iterator, INode node, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
+                => iterator.TryEnterNode(node, out childIterator, out mapper);
+
+            private static bool TryEnterValueHelper(ISchemaIterator iterator, object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
+                => iterator.TryEnterValue(value, out childIterator, out mapper);
+
+            private bool TryEnter<T>(T item, TryEnterDelegate<T> tryEnter, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
+            {
                 bool entered;
                 ISchemaIterator? secondaryChildIterator;
 
-                if (primary.TryEnterNode(node, out childIterator!, out mapper!))
+                if (tryEnter(primary, item, out childIterator!, out mapper!))
                 {
-                    secondary.TryEnterNode(node, out secondaryChildIterator, out _);
+                    tryEnter(secondary, item, out secondaryChildIterator, out _);
                     entered = true;
                 }
                 else
                 {
-                    entered = secondary.TryEnterNode(node, out secondaryChildIterator, out mapper!);
+                    entered = tryEnter(secondary, item, out secondaryChildIterator, out mapper!);
                 }
 
                 if (secondaryChildIterator != null)
@@ -71,23 +93,6 @@ namespace YamlDotNet.Representation.Schemas
                         : secondaryChildIterator;
                 }
                 return entered;
-            }
-
-            public bool TryEnterValue(object? value, [NotNullWhen(true)] out ISchemaIterator? childIterator, [NotNullWhen(true)] out INodeMapper? mapper)
-            {
-                if (primary.TryEnterValue(value, out childIterator, out mapper))
-                {
-                    if (secondary.TryEnterValue(value, out var secondaryChildIterator, out _))
-                    {
-                        childIterator = new CompositeIterator(childIterator, secondaryChildIterator);
-                        return true;
-                    }
-                    return true;
-                }
-                else
-                {
-                    return secondary.TryEnterValue(value, out childIterator, out mapper);
-                }
             }
 
             public bool TryEnterMappingValue([NotNullWhen(true)] out ISchemaIterator? childIterator)
@@ -109,59 +114,21 @@ namespace YamlDotNet.Representation.Schemas
 
             public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
             {
-                throw new NotImplementedException();
+                return primary.IsTagImplicit(scalar, out style)
+                    || secondary.IsTagImplicit(scalar, out style);
             }
 
             public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
             {
-                throw new NotImplementedException();
+                return primary.IsTagImplicit(sequence, out style)
+                    || secondary.IsTagImplicit(sequence, out style);
             }
 
             public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
             {
-                throw new NotImplementedException();
+                return primary.IsTagImplicit(mapping, out style)
+                    || secondary.IsTagImplicit(mapping, out style);
             }
-
-            //public IEnumerable<NodeMatcher> NodeMatchers => primary.NodeMatchers.Concat(secondary.NodeMatchers);
-
-            //public ISchemaIterator EnterNode(INode node)
-            //{
-            //    return new CompositeIterator(primary.EnterNode(node), secondary.EnterNode(node));
-            //}
-
-            //public (ISchemaIterator iterator, INodeMapper mapper) EnterValue(object? value)
-            //{
-            //    return new CompositeIterator(primary.EnterValue(value), secondary.EnterValue(value));
-            //}
-
-            //public ISchemaIterator EnterMappingValue()
-            //{
-            //    return new CompositeIterator(primary.EnterMappingValue(), secondary.EnterMappingValue());
-            //}
-
-            //public bool TryResolveMapper(INode node, [NotNullWhen(true)] out INodeMapper? mapper)
-            //{
-            //    return primary.TryResolveMapper(node, out mapper)
-            //        || secondary.TryResolveMapper(node, out mapper);
-            //}
-
-            //public bool IsTagImplicit(IScalar scalar, out ScalarStyle style)
-            //{
-            //    return primary.IsTagImplicit(scalar, out style)
-            //        || secondary.IsTagImplicit(scalar, out style);
-            //}
-
-            //public bool IsTagImplicit(ISequence sequence, out SequenceStyle style)
-            //{
-            //    return primary.IsTagImplicit(sequence, out style)
-            //        || secondary.IsTagImplicit(sequence, out style);
-            //}
-
-            //public bool IsTagImplicit(IMapping mapping, out MappingStyle style)
-            //{
-            //    return primary.IsTagImplicit(mapping, out style)
-            //        || secondary.IsTagImplicit(mapping, out style);
-            //}
         }
     }
 }

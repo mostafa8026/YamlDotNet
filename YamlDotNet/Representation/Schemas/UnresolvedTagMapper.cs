@@ -38,7 +38,7 @@ namespace YamlDotNet.Representation.Schemas
             throw new UnresolvedTagException(node.Start, node.End, Tag);
         }
 
-        public Node Represent(object? native, ISchemaIterator iterator)
+        public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
         {
             throw new UnresolvedTagException(Tag);
         }
