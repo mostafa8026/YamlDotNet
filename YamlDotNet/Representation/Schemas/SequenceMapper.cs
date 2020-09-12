@@ -78,24 +78,25 @@ namespace YamlDotNet.Representation.Schemas
             return collection;
         }
 
-        public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
+        public Node Represent(object? native, ISchemaIterator iterator, IRepresentationState state)
         {
-            recursionLimit.Increment();
+            state.RecursionLevel.Increment();
             
             var children = new List<Node>();
 
             // Notice that the children collection will still be mutated after constructing the Sequence object.
-            // We need to create it now in order to update the current path.
+            // We need to create it now in order to memorize it.
             var sequence = new Sequence(this, children.AsReadonlyList());
+            state.MemorizeRepresentation(native!, sequence);
 
             foreach (var item in (ICollection<TElement>)native!)
             {
                 var itemIterator = iterator.EnterValue(item, out var itemMapper);
-                var childNode = itemMapper.Represent(item, itemIterator, recursionLimit);
+                var childNode = itemMapper.RepresentMemorized(item, itemIterator, state);
                 children.Add(childNode);
             }
 
-            recursionLimit.Decrement();
+            state.RecursionLevel.Decrement();
 
             return sequence;
         }

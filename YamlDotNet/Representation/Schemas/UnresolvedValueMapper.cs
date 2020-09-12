@@ -40,7 +40,7 @@ namespace YamlDotNet.Representation.Schemas
             throw new UnresolvedValueException(value);
         }
 
-        public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
+        public Node Represent(object? native, ISchemaIterator iterator, IRepresentationState state)
         {
             throw new UnresolvedValueException(value);
         }

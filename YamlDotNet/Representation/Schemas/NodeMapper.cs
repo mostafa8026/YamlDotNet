@@ -43,11 +43,11 @@ namespace YamlDotNet.Representation.Schemas
             public INodeMapper Canonical { get; }
 
             public object? Construct(Node node) => constructor(node);
-            public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
+            public Node Represent(object? native, ISchemaIterator iterator, IRepresentationState state)
             {
-                recursionLimit.Increment();
+                state.RecursionLevel.Increment();
                 var node = representer(native, this);
-                recursionLimit.Decrement();
+                state.RecursionLevel.Decrement();
                 return node;
             }
 

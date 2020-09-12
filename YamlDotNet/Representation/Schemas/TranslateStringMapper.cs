@@ -56,7 +56,7 @@ namespace YamlDotNet.Representation.Schemas
             return nativeValue;
         }
 
-        public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
+        public Node Represent(object? native, ISchemaIterator iterator, IRepresentationState state)
         {
             if (!nativeValue.Equals(native))
             {

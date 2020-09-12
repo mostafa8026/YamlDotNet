@@ -187,7 +187,7 @@ namespace YamlDotNet.Test.Spec
             Assert.Equal(expectedLoadedValue, actualLoadedValue);
 
             // Check dumped value
-            var dumpedScalar = actual.Mapper.Represent(actualLoadedValue, schema.Root, new RecursionLevel(200));
+            var dumpedScalar = actual.Mapper.RepresentMemorized(actualLoadedValue, schema.Root, new RepresentationState());
 
             var emittedYaml = Stream.Dump(new[] { new Document(dumpedScalar, schema) }, explicitSeparators: true);
 

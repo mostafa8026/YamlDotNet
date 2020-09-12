@@ -47,7 +47,7 @@ namespace YamlDotNet.Representation.Schemas
             return node.Expect<Scalar>().Value;
         }
 
-        public Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit)
+        public Node Represent(object? native, ISchemaIterator iterator, IRepresentationState state)
         {
             return new Scalar(this, (string)native!);
         }

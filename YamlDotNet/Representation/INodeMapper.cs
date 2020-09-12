@@ -19,7 +19,10 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using YamlDotNet.Core;
+using YamlDotNet.Helpers;
 using YamlDotNet.Representation.Schemas;
 
 namespace YamlDotNet.Representation
@@ -49,12 +52,12 @@ namespace YamlDotNet.Representation
         /// </summary>
         /// <param name="native">The value to be converted. It must be compatible with this mapper's <see cref="Tag"/>.</param>
         /// <param name="iterator">The <see cref="ISchemaIterator" /> that should be used to resolve tags.</param>
-        /// <param name="recursionLimit">A <see cref="RecursionLevel" /> instance that is used to limit the maximum amount of recursion.</param>
+        /// <param name="state">An <see cref="IRepresentationState" /> that is used to store state during the representation of an object graph.</param>
         /// <returns>
         /// Returns a <see cref="Node"/> that represents the <paramref name="native"/> in YAML,
         /// according to this <see cref="Tag"/>'s rules.
         /// </returns>
-        Node Represent(object? native, ISchemaIterator iterator, RecursionLevel recursionLimit);
+        Node Represent(object? native, ISchemaIterator iterator, IRepresentationState state);
 
         /// <summary>
         /// Gets the canonical version of this <see cref="INodeMapper" />.
@@ -66,5 +69,50 @@ namespace YamlDotNet.Representation
         /// and uses the canonical form as representation.
         /// </remarks>
         INodeMapper Canonical { get; }
+    }
+
+    public interface IRepresentationState
+    {
+        /// <summary>
+        /// A <see cref="Core.RecursionLevel" /> instance that is used to limit the maximum amount of recursion.
+        /// </summary>
+        RecursionLevel RecursionLevel { get; }
+
+        /// <summary>
+        /// Gets a previously computed representation of the specified <paramref name="native"/> value.
+        /// </summary>
+        bool TryGetMemorizedRepresentation(object native, [NotNullWhen(true)] out Node? representation);
+
+        /// <summary>
+        /// Stores a computed representation of the specified <paramref name="native"/> value.
+        /// </summary>
+        void MemorizeRepresentation(object native, Node representation);
+    }
+
+    public static class NodeMapperExtensions
+    {
+        public static Node RepresentMemorized(this INodeMapper mapper, object? native, ISchemaIterator iterator, IRepresentationState state)
+        {
+            return !(native is null) && state.TryGetMemorizedRepresentation(native, out var node)
+                ? node
+                : mapper.Represent(native, iterator, state);
+        }
+    }
+
+    public sealed class RepresentationState : IRepresentationState
+    {
+        public RecursionLevel RecursionLevel { get; } = new RecursionLevel(200); // TODO: Configure recursion limit somewhere
+
+        private readonly Dictionary<object, Node> memorizedRepresentations = new Dictionary<object, Node>(ReferenceEqualityComparer<object>.Default);
+
+        public void MemorizeRepresentation(object native, Node representation)
+        {
+            memorizedRepresentations.Add(native, representation);
+        }
+
+        public bool TryGetMemorizedRepresentation(object native, [NotNullWhen(true)] out Node? representation)
+        {
+            return memorizedRepresentations.TryGetValue(native, out representation);
+        }
     }
 }

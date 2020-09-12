@@ -61,7 +61,7 @@ namespace YamlDotNet.Serialization.Schemas
         public Document Represent(object? value)
         {
             var iterator = Root.EnterValue(value, out var mapper);
-            var content = mapper.Represent(value, iterator, new RecursionLevel(200)); // TODO: Configure recursion limit somewhere
+            var content = mapper.RepresentMemorized(value, iterator, new RepresentationState());
 
             return new Document(content, this);
         }
